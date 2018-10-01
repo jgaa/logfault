@@ -3,16 +3,16 @@
 #ifndef _LOGFAULT_H
 #define _LOGFAULT_H
 
-#include <string>
-#include <thread>
+#include <assert.h>
+#include <chrono>
+#include <functional>
+#include <iomanip>
 #include <memory>
 #include <mutex>
-#include <vector>
-#include <chrono>
 #include <sstream>
-#include <iomanip>
-
-#include <assert.h>
+#include <string>
+#include <thread>
+#include <vector>
 
 #ifdef LOGFAULT_USE_SYSLOG
 #   include <syslog.h>
