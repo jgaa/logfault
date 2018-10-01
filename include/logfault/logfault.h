@@ -29,6 +29,7 @@ Home: https://github.com/jgaa/logfault
 #ifndef _LOGFAULT_H
 #define _LOGFAULT_H
 
+#include <array>
 #include <assert.h>
 #include <chrono>
 #include <functional>
