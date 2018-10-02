@@ -61,12 +61,12 @@ Home: https://github.com/jgaa/logfault
 #define LFLOG_TRACE LOGFAULT_LOG(logfault::LogLevel::TRACE)
 
 #ifdef LOGFAULT_ENABLE_ALL
-#   define LFLOG_IFALL_ERROR(msg) LOGFAULT_LOG(logfault::LogLevel::ERROR) << msg
-#   define LFLOG_IFALL_WARN(msg) LOGFAULT_LOG(logfault::LogLevel::WARN) << msg
-#   define LFLOG_IFALL_NOTICE(msg) LOGFAULT_LOG(logfault::LogLevel::NOTICE) << msg
-#   define LFLOG_IFALL_INFO(msg) LOGFAULT_LOG(logfault::LogLevel::INFO) << msg
-#   define LFLOG_IFALL_DEBUG(msg) LOGFAULT_LOG(logfault::LogLevel::DEBUG) << msg
-#   define LFLOG_IFALL_TRACE(msg) LOGFAULT_LOG(logfault::LogLevel::TRACE) << msg
+#   define LFLOG_IFALL_ERROR(msg) LFLOG_ERROR << msg
+#   define LFLOG_IFALL_WARN(msg) LFLOG_WARN << msg
+#   define LFLOG_IFALL_NOTICE(msg) LFLOG_NOTICE << msg
+#   define LFLOG_IFALL_INFO(msg) LFLOG_INFO << msg
+#   define LFLOG_IFALL_DEBUG(msg) LFLOG_DEBUG << msg
+#   define LFLOG_IFALL_TRACE(msg) LFLOG_TRACE << msg
 # else
 #   define LFLOG_IFALL_ERROR(msg)
 #   define LFLOG_IFALL_WARN(msg)
@@ -103,20 +103,25 @@ namespace logfault {
                 {{"ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}};
             return names.at(static_cast<size_t>(level));
         }
+
+        void PrintMessage(std::ostream& out, const logfault::Message& msg) {
+            const auto tt = std::chrono::system_clock::to_time_t(msg.when_);
+            const auto tm = std::localtime(&tt);
+
+            out << std::put_time(tm, "%c %Z") << ' ' << LevelName(msg.level_)
+                << ' ' << std::this_thread::get_id()
+                << ' ' << msg.msg_;
+        }
+
     };
 
     class StreamHandler : public Handler {
     public:
         StreamHandler(std::ostream& out, LogLevel level) : Handler(level), out_{out} {}
 
-        void LogMessage(const logfault::Message& msg) override {
-
-            const auto tt = std::chrono::system_clock::to_time_t(msg.when_);
-            const auto tm = std::localtime(&tt);
-
-            out_ << std::put_time(tm, "%c %Z") << ' ' << LevelName(msg.level_)
-                << ' ' << std::this_thread::get_id()
-                << ' ' << msg.msg_ << std::endl;
+        void LogMessage(const Message& msg) override {
+            PrintMessage(out_, msg);
+            out_ << std::endl;
         }
 
     private:
@@ -168,7 +173,7 @@ namespace logfault {
         AndroidHandler(const std::string& name, LogLevel level)
         : Handler(level), name_{name} {}
 
-        void Handler::LogMessage(const logfault::Message& msg) override {
+        void LogMessage(const logfault::Message& msg) override {
             static const std::array<int, 6> android_priority =
                 { ANDROID_LOG_ERROR, ANDROID_LOG_WARN, ANDROID_LOG_INFO,
                   ANDROID_LOG_INFO, ANDROID_LOG_DEBUG, ANDROID_LOG_VERBOSE };
@@ -180,6 +185,26 @@ namespace logfault {
         const std::char name_;
     };
 #endif
+
+#if defined(LOGFAULT_USE_COCOA_NLOG) || defined(LOGFAULT_USE_COCOA_NLOG_IMPL)
+    class CocoaHandler : public Handler {
+    public:
+        CocoaHandler(LogLevel level)
+        : Handler(level) {}
+
+        void LogMessage(const logfault::Message& msg) override;
+    };
+
+    // Must be defined once, when included to a .m or .mm file
+    #ifdef LOGFAULT_USE_COCOA_NLOG_IMPL
+        void CocoaHandler::LogMessage(const logfault::Message& msg) override {
+            std::otringstrem out;
+            PrintMessage(out, msg);
+            const auto text = out.str();
+            NSLog(@"%s", text.c_str());
+        }
+    #endif //LOGFAULT_USE_COCOA_NLOG_IMPL
+#endif // LOGFAULT_USE_COCOA_NLOG
 
     class LogManager {
         LogManager() = default;
@@ -245,6 +270,7 @@ private:
         const LogLevel level_;
         std::ostringstream out_;
     };
+
 } // namespace
 
 #endif // _LOGFAULT_H
