@@ -198,9 +198,7 @@ namespace logfault {
     // Must be defined once, when included to a .m or .mm file
     #ifdef LOGFAULT_USE_COCOA_NLOG_IMPL
         void CocoaHandler::LogMessage(const logfault::Message& msg) override {
-            std::otringstrem out;
-            PrintMessage(out, msg);
-            const auto text = out.str();
+            const std::string text = LevelName(msg.level_) + " " + msg.msg_;
             NSLog(@"%s", text.c_str());
         }
     #endif //LOGFAULT_USE_COCOA_NLOG_IMPL
