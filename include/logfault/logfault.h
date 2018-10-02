@@ -167,7 +167,6 @@ namespace logfault {
 #endif
 
 #ifdef LOGFAULT_USE_ANDROID_NDK_LOG
-
     class AndroidHandler : public Handler {
     public:
         AndroidHandler(const std::string& name, LogLevel level)
@@ -178,11 +177,11 @@ namespace logfault {
                 { ANDROID_LOG_ERROR, ANDROID_LOG_WARN, ANDROID_LOG_INFO,
                   ANDROID_LOG_INFO, ANDROID_LOG_DEBUG, ANDROID_LOG_VERBOSE };
             __android_log_write(android_priority.at(static_cast<int>(level_)),
-                                name_.c_str(), msg.c_str());
+                                name_.c_str(), msg.msg_.c_str());
         }
 
     private:
-        const std::char name_;
+        const std::string name_;
     };
 #endif
 
@@ -195,7 +194,7 @@ namespace logfault {
         void LogMessage(const logfault::Message& msg) override;
     };
 
-    // Must be defined once, when included to a .m or .mm file
+    // Must be defined once, when included to a .mm file
     #ifdef LOGFAULT_USE_COCOA_NLOG_IMPL
         void CocoaHandler::LogMessage(const logfault::Message& msg) {
             const std::string text = LevelName(msg.level_) + " " + msg.msg_;
