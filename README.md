@@ -68,6 +68,12 @@ void SetLogLevel(LogLevel level) {
 }
 ```
 
+Please notice that for NSLog to work, you need to define `LOGFAULT_USE_COCOA_NLOG_IMPL` before including
+`logfault.h` in *one* .mm file. This is because of how the Apple development tools deal with Objective-C and
+C++. We cannot reach the Cocoa function `NSLog` from C++ code - only from Objective-C. And since we need
+C++ code to define the Cocoa handler, the implementation needs to go in *one* .mm file. You can create an
+empty .mm file for this purpose, or use an existing one.
+
 Swift code to set the log-level:
 ```swift
 SetLogLevel(LOG_TRACE);
