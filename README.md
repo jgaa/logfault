@@ -156,7 +156,7 @@ int main() {
 
 ```
 
-## Log to stdout
+## Log to stdout or file
 
 Similarly, if you just want to log to standard output:
 
@@ -173,6 +173,8 @@ int main() {
 }
 
 ```
+You can of course replace `clog` with any `std::ostream`, for example an open file to write to.
+
 
 ## Multiple log-targets
 
