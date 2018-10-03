@@ -41,7 +41,9 @@ void SetLogLevel(LogLevel level);
 #endif
 ```
 
-```Objective-C `LogWrapper.mm`
+The implementation: `LogWrapper.mm`
+
+```Objective-C
 #include "LogWrapper.h"
 
 #define LOGFAULT_USE_COCOA_NLOG_IMPL
