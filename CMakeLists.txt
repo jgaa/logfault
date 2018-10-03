@@ -8,6 +8,8 @@ macro(SET_CPP_STANDARD target)
     set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
 endmacro(SET_CPP_STANDARD)
 
+set(DEFAULT_LIBRARIES pthread)
+
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
     )
