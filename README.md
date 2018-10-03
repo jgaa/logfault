@@ -175,6 +175,28 @@ int main() {
 ```
 You can of course replace `clog` with any `std::ostream`, for example an open file to write to.
 
+## Log via another log-system
+
+It's normal for a log-library to have a means of chaining log events to some other log framework.
+*Logfault* have a proxy handler where you can direct the log messages wherever you like.
+
+```C++
+#include "logfault/logfault.h"
+using namespace std;
+
+int main() {
+
+    // Set up a log-handler to a lambda function
+    logfault::LogManager::Instance().AddHandler(make_unique<ProxyHandler>([](const logfault::Message& event) {
+
+        // Here, you could send the log-event to whatever you want
+        cerr << "Log event: " << event.msg_ << std::endl;
+
+    }, logfault::LogLevel::DEBUG));
+
+    LFLOG_DEBUG << "Logging to proxy is enabled at DEBUG level";
+}
+```
 
 ## Multiple log-targets
 

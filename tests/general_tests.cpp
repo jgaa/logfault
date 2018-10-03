@@ -18,6 +18,14 @@ int main( int argc, char *argv[]) {
     logfault::LogManager::Instance().AddHandler(move(syslog_handler));
 
 
+    std::unique_ptr<logfault::Handler> proxy_handler{ new logfault::ProxyHandler([](const logfault::Message& event) {
+
+        cerr << "Log event: " << event.msg_ << std::endl;
+
+    }, logfault::LogLevel::DEBUG)};
+    logfault::LogManager::Instance().AddHandler(move(proxy_handler));
+
+
     LFLOG_DEBUG << "Testing" << 1 << 2 << 3;
     LFLOG_ERROR << "Did something fail?";
 
