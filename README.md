@@ -6,7 +6,7 @@ No dependencies, except the standard-library for C++11 and platform dependent lo
 
 # Why another C++ logging library?
 
-Simply because I am tired of using different log methods on different platforms. Most of the C++ code I write is highly portable, and it makes sense to add logging in a convenient manner. For me that is to send the log to a std::ostream like device.
+Simply because I am tired of using different log methods on different platforms. Most of the C++ code I write is highly portable, and it makes sense to add logging in a convenient manner. For me that is to send the log to a std::ostream like device. Logging should be as easy as writing to `std::cout`!
 
 *Logfault* can write log-events to traditional log-files, but it's also capable of using the native logging facility for the target platform for the target application. That meas that you can write your C++ library, and then let the consumer of the library configure logging for the platform they build it for.
 
@@ -240,20 +240,20 @@ the C++ preprocessor, unless `LOGFAULT_ENABLE_ALL` is defined when `logfault.h` 
 
 The full set of log-macros are:
 
-**`LFLOG_ERROR`** Errors
-**`LFLOG_WARN`** Warnings
-**`LFLOG_NOTICE`** Notable events
-**`LFLOG_INFO`** Information about what's going on
-**`LFLOG_DEBUG`** Debug messages
-**`LFLOG_TRACE`** Trace messages. These may give very detailed information about what's going on
+- **`LFLOG_ERROR`** Errors
+- **`LFLOG_WARN`** Warnings
+- **`LFLOG_NOTICE`** Notable events
+- **`LFLOG_INFO`** Information about what's going on
+- **`LFLOG_DEBUG`** Debug messages
+- **`LFLOG_TRACE`** Trace messages. These may give very detailed information about what's going on
 
 
 And a similar set of conditional macros that require `LOGFAULT_ENABLE_ALL` in order to work.
 
-**`LFLOG_IFALL_ERROR()`** Errors
-**`LFLOG_IFALL_WARN()`** Warnings
-**`LFLOG_IFALL_NOTICE()`** Notable events
-**`LFLOG_IFALL_INFO()`** Information about what's going on
-**`LFLOG_IFALL_DEBUG()`** Debug messages
-**`LFLOG_IFALL_TRACE()`** Trace messages. These may give very detailed information about what's going on
+- **`LFLOG_IFALL_ERROR()`** Errors
+- **`LFLOG_IFALL_WARN()`** Warnings
+- **`LFLOG_IFALL_NOTICE()`** Notable events
+- **`LFLOG_IFALL_INFO()`** Information about what's going on
+- **`LFLOG_IFALL_DEBUG()`** Debug messages
+- **`LFLOG_IFALL_TRACE()`** Trace messages. These may give very detailed information about what's going on
 
