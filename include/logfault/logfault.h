@@ -146,24 +146,22 @@ namespace logfault {
 
 #ifdef LOGFAULT_USE_SYSLOG
     class SyslogHandler : public Handler {
-
+    public:
         SyslogHandler(LogLevel level, int facility = LOG_USER)
-        : Handler(level), facility_{facility} {}
+        : Handler(level) {
+            static std::once_flag syslog_opened;
+            std::call_once(syslog_opened, [facility] {
+                openlog(nullptr, 0, facility);
+            });
+        }
 
         void LogMessage(const logfault::Message& msg) override {
             static const std::array<int, 6> syslog_priority =
                 { LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG, LOG_DEBUG };
-            static std::once_flag syslog_opened;
-            std::call_once(syslog_opened, [] {
-                openlog(nullptr, 0, facility_);
-            });
 
-            syslog(syslog_priority.at(static_cast<int>(level_)), "%s", msg.c_str());
+            syslog(syslog_priority.at(static_cast<int>(level_)), "%s", msg.msg_.c_str());
         }
-
-    private:
-        int facility_;
-    }
+    };
 #endif
 
 #ifdef LOGFAULT_USE_ANDROID_NDK_LOG
@@ -248,8 +246,8 @@ namespace logfault {
         }
 
     private:
-        std::mutex mutex_;
         std::vector<Handler::ptr_t> handlers_;
+        std::mutex mutex_;
         LogLevel level_ = LogLevel::ERROR;
     };
 
