@@ -49,6 +49,10 @@ Home: https://github.com/jgaa/logfault
 #   include <android/log.h>
 #endif
 
+#ifdef LOGFAULT_USE_QT_LOG
+#   include <QDebug>
+#endif
+
 #define LOGFAULT_LOG(level) \
     ::logfault::LogManager::Instance().IsRelevant(level) && \
     ::logfault::Log(level).Line()
@@ -180,6 +184,33 @@ namespace logfault {
 
     private:
         const std::string name_;
+    };
+#endif
+
+#ifdef LOGFAULT_USE_QT_LOG
+    class QtHandler : public Handler {
+    public:
+        QtHandler(LogLevel level)
+        : Handler(level) {}
+
+        void LogMessage(const logfault::Message& msg) override {
+            switch(msg.level_ {
+                case LogLevel::ERROR:
+                    qFatal() << msg.msg_;
+                    break;
+                case LogLevel::WARN:
+                    qWarning() << msg.msg_;
+                    break;
+                case LogLevel::INFO:
+                case LogLevel::NOTICE:
+                    qInfo() << msg.msg_;
+                    break;
+                case LogLevel::DEBUG:
+                case LogLevel::TRACE:
+                    qDebug() << msg.msg_;
+                    break;
+            }
+        }
     };
 #endif
 
