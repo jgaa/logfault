@@ -2,7 +2,8 @@
 #include <iostream>
 
 #define LOGFAULT_ENABLE_ALL
-#define LOGFAULT_USE_SYSLOG
+//#define LOGFAULT_USE_SYSLOG
+//#define LOGFAULT_USE_WINDOWS_EVENTLOG
 #include "logfault/logfault.h"
 
 using namespace std;
@@ -10,12 +11,17 @@ using namespace std;
 int main( int argc, char *argv[]) {
 
     std::unique_ptr<logfault::Handler> filehandler{new logfault::StreamHandler(clog, logfault::LogLevel::TRACE)};
+    logfault::LogManager::Instance().AddHandler(move(filehandler));
 
+#ifdef LOGFAULT_USE_WINDOWS_EVENTLOG
+	std::unique_ptr<logfault::Handler> eventhandler{new logfault::WindowsEventLogHandler("general_tests", logfault::LogLevel::DEBUG)};
+	logfault::LogManager::Instance().AddHandler(move(eventhandler));
+#endif
 
-    //logfault::LogManager::Instance().AddHandler(move(filehandler));
-
+#ifdef LOGFAULT_USE_SYSLOG
     std::unique_ptr<logfault::Handler> syslog_handler{ new logfault::SyslogHandler(logfault::LogLevel::DEBUG) };
     logfault::LogManager::Instance().AddHandler(move(syslog_handler));
+#endif
 
 
     std::unique_ptr<logfault::Handler> proxy_handler{ new logfault::ProxyHandler([](const logfault::Message& event) {

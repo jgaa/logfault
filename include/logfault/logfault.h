@@ -53,6 +53,13 @@ Home: https://github.com/jgaa/logfault
 #   include <QDebug>
 #endif
 
+#ifdef LOGFAULT_USE_WINDOWS_EVENTLOG
+#	include <windows.h>
+
+// Thank you soo much Microsoft!
+#	undef ERROR
+#endif
+
 #define LOGFAULT_LOG(level) \
     ::logfault::LogManager::Instance().IsRelevant(level) && \
     ::logfault::Log(level).Line()
@@ -231,6 +238,42 @@ namespace logfault {
         }
     #endif //LOGFAULT_USE_COCOA_NLOG_IMPL
 #endif // LOGFAULT_USE_COCOA_NLOG
+
+#ifdef LOGFAULT_USE_WINDOWS_EVENTLOG
+		class WindowsEventLogHandler : public Handler {
+		public:
+			WindowsEventLogHandler(const std::string& name, LogLevel level)
+				: Handler(level) {
+				h_ = RegisterEventSource(0, name.c_str());
+			}
+
+			~WindowsEventLogHandler() {
+				DeregisterEventSource(h_);
+			}
+
+			void LogMessage(const logfault::Message& msg) override {
+				if (!h_) {
+					return;
+				}
+				WORD wtype = EVENTLOG_SUCCESS;
+				switch (msg.level_) {
+				case LogLevel::ERROR:
+					wtype = EVENTLOG_ERROR_TYPE;
+					break;
+				case LogLevel::WARN:
+					wtype = EVENTLOG_WARNING_TYPE;
+					break;
+				default:
+					;
+				}
+
+				LPCSTR buffer = reinterpret_cast<LPCSTR>(msg.msg_.c_str());
+				ReportEventA(h_, wtype, 0, 0, 0, 1, 0, &buffer, 0);
+			}
+		private:
+			HANDLE h_ = {};
+	};
+#endif // LOGFAULT_USE_WINDOWS_EVENTLOG
 
     class LogManager {
         LogManager() = default;

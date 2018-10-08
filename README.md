@@ -162,6 +162,39 @@ int main() {
 
 ```
 
+## Windows event-log
+The library can send log-events to the Windows Event-log.
+
+If you want to do it peoperly, you need to create a  messge template file, compile it,
+include it in the Visual Studio project, and then add it in the registry on the
+computers that will run the application. For obvious reasons, most applications don't
+do that, and the events are polluted by the message:
+
+```
+The description for Event ID 0 from source general_tests cannot be found. Either the component that raises this event is not installed on your local computer or the installation is corrupted. You can install or repair the component on the local computer.
+
+If the event originated on another computer, the display information had to be saved with the event.
+
+The following information was included with the event: 
+```
+
+This is fine. Even large Windows application vendors ignores this inconvenience in their logging. 
+Blame Microsoft for making it very hard to support the Wvent Log in 3rd party applications. 
+
+Example of application logging to the Windows event-log:
+
+```C++
+#define LOGFAULT_USE_WINDOWS_EVENTLOG
+#include "logfault/logfault.h"
+
+int main( int argc, char *argv[]) {
+	std::unique_ptr<logfault::Handler> eventhandler{new logfault::WindowsEventLogHandler("example", logfault::LogLevel::DEBUG)};
+	logfault::LogManager::Instance().AddHandler(move(eventhandler));
+
+    LFLOG_DEBUG << "Logging to the Windows Event log is enabled at DEBUG level";
+}
+```
+
 ## Log to stdout or file
 
 Similarly, if you just want to log to standard output:
