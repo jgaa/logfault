@@ -179,7 +179,7 @@ do that, and the events are polluted by the message:
 This is fine. Even large Windows application vendors ignores this inconvenience in their logging.
 Blame Microsoft for making it very hard to support the EventLog in 3rd party applications.
 
-Example of application logging to the Windows event-log:
+Example of application logging to the Windows EventLog:
 
 ```C++
 #define LOGFAULT_USE_WINDOWS_EVENTLOG
@@ -189,7 +189,7 @@ int main( int argc, char *argv[]) {
     std::unique_ptr<logfault::Handler> eventhandler{new logfault::WindowsEventLogHandler("example", logfault::LogLevel::DEBUG)};
     logfault::LogManager::Instance().AddHandler(move(eventhandler));
 
-    LFLOG_DEBUG << "Logging to the Windows Event log is enabled at DEBUG level";
+    LFLOG_DEBUG << "Logging to the Windows EventLog is enabled at DEBUG level";
 }
 ```
 
