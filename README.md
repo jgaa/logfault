@@ -186,8 +186,8 @@ Example of application logging to the Windows event-log:
 #include "logfault/logfault.h"
 
 int main( int argc, char *argv[]) {
-	std::unique_ptr<logfault::Handler> eventhandler{new logfault::WindowsEventLogHandler("example", logfault::LogLevel::DEBUG)};
-	logfault::LogManager::Instance().AddHandler(move(eventhandler));
+    std::unique_ptr<logfault::Handler> eventhandler{new logfault::WindowsEventLogHandler("example", logfault::LogLevel::DEBUG)};
+    logfault::LogManager::Instance().AddHandler(move(eventhandler));
 
     LFLOG_DEBUG << "Logging to the Windows Event log is enabled at DEBUG level";
 }
