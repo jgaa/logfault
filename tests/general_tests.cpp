@@ -2,6 +2,9 @@
 #include <iostream>
 
 #define LOGFAULT_ENABLE_ALL
+//#define LOGFAULT_USE_UTCZONE 1
+//#define LOGFAULT_TIME_FORMAT "%c"
+//#define LOGFAULT_TIME_PRINT_MILLISECONDS 0
 //#define LOGFAULT_USE_SYSLOG
 //#define LOGFAULT_USE_WINDOWS_EVENTLOG
 #include "logfault/logfault.h"

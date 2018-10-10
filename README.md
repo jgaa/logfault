@@ -14,136 +14,97 @@ Simply because I am tired of using different log methods on different platforms.
 
 For example - I currently develop a general C++ library under Linux, with few dependencies and no use of boost. It use CMake, and when I build it for testing, I log to std::clog, and inspect the logs in *kdevelop*. The library is used by apps for IOS and Android.
 
-## Configure log targets and log levels
+# Logging
 
-Log targets can be configured in C++ code, as part of the initialization of your library, or application, or the log setup can be wrapped to the target platform's language(s).
+When you log messages, you stream data into a temporary std::ostream object. So everything that goes into a std::ostream instance can be logged.
+I often find myself writing custom std::ostream operators to log things like enum names and internal data structures or
+object identifies.
 
-### IOS and macos targets
+*Logfault* has two types of log macros. You have normal log macros, that are used like this:
 
-Under IOS, the app developers for my library use a tiny wrapper I wrote in Objective-C to enable logging and chose log level, either from Objective-C or Swift.
-
-Objective C, header file: `LogWrapper.h`
-```Objective-C
-typedef enum {
-    LOG_NORMAL,
-    LOG_DEBUG,
-    LOG_TRACE
-} LogLevel;
-
-#if defined __cplusplus
-extern "C" {
-#endif
-
-void SetLogLevel(LogLevel level);
-
-#if defined __cplusplus
-};
-#endif
+```C++
+LFLOG_ERROR << "Some error occurred: " << errno;
+LFLOG_DEBUG << "We are entering foo foo";
 ```
 
-The implementation: `LogWrapper.mm`
+These macros expand to something like:
+```C++
+if (log_event_log_level is within current_log_level_range
+    and we_are_indeed_logging) {
 
-```Objective-C
-#include "LogWrapper.h"
-
-#define LOGFAULT_USE_COCOA_NLOG_IMPL
-#include "logfault/logfault.h"
-
-void SetLogLevel(LogLevel level) {
-
-    logfault::LogLevel use_level = logfault::LogLevel::INFO;
-
-    switch(level) {
-        case LOG_DEBUG:
-            use_level = logfault::LogLevel::DEBUG;
-            break;
-        case LOG_TRACE:
-            use_level = logfault::LogLevel::TRACE;
-            break;
-        case LOG_NORMAL:
-            break; // default
-    }
-
-    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::CocoaHandler>(use_level));
+    logstream << args ...;
 }
 ```
 
-**Please notice** that for NSLog to work, you need to define `LOGFAULT_USE_COCOA_NLOG_IMPL` before including
-`logfault.h` in *one* .mm file. This is because of how the Apple development tools deal with Objective-C and
-C++. We cannot reach the Cocoa function `NSLog` from C++ code - only from Objective-C. And since we need
-C++ code to define the Cocoa handler, the implementation needs to go in *one* .mm file. You can create an
-empty .mm file for this purpose, or use an existing one.
+In other words, the streaming arguments will be ignored (and function arguments not called) unless we will actually log the line.
+If the log-level is set to NOTICE, all DEBUG and TRACE messages will be totally ignored and not consume any CPU. The
+only CPU consumed for such log statements is the check to see if the log statements are relevant.
 
-Swift code to set the log-level:
-```swift
-SetLogLevel(LOG_TRACE);
+Usually this is fine. However, some times we need a lot of log statements to understand the cause of some weird bug.
+Normally I don't even want those log statements to be evaluated for relevance. For those statements, we have
+another type of log macros:
+
+```C++
+LFLOG_IFALL_TRACE("Show only if enabled" << 1 << 3 << 5);
 ```
 
-That's it. This Objective-C code enables logging trough NSLog for IOS (and macos, it that's your target).
+Notice that the whole log statement is enclosed by `(` and `)`. These log statements are simply removed by
+the C++ preprocessor, unless `LOGFAULT_ENABLE_ALL` is defined when `logfault.h` is included.
 
-### Android NDK targets
+## The full set of log-macros
 
-Under Android, I made a similar wrapper that let the Android app developers enable the log and set the level they want from Java.
+- **`LFLOG_ERROR`** Errors
+- **`LFLOG_WARN`** Warnings
+- **`LFLOG_NOTICE`** Notable events
+- **`LFLOG_INFO`** Information about what's going on
+- **`LFLOG_DEBUG`** Debug messages
+- **`LFLOG_TRACE`** Trace messages. These may give very detailed information about what's going on
 
-Header file: `Logger.h`
+
+And a similar set of conditional macros that require `LOGFAULT_ENABLE_ALL` in order to work.
+
+- **`LFLOG_IFALL_ERROR()`** Errors
+- **`LFLOG_IFALL_WARN()`** Warnings
+- **`LFLOG_IFALL_NOTICE()`** Notable events
+- **`LFLOG_IFALL_INFO()`** Information about what's going on
+- **`LFLOG_IFALL_DEBUG()`** Debug messages
+- **`LFLOG_IFALL_TRACE()`** Trace messages. These may give very detailed information about what's going on
+
+
+# Configure log targets and log levels
+
+A log target is somewhere to deliver the log events, like a file on disk, or a log application
+like syslog.
+
+*Logfault* use instances of log handlers to configure the targets.
+
+Log targets can be configured in C++ code, as part of the initialization of your library,
+or application, or the log setup can be wrapped to the target platform's language(s).
+
+It's simple to create [initialization functions for other languages](doc/control_wrappers.md).
+
+## Log to stdout or file
+
+If you just want to log to standard output:
+
 ```C++
-pragma once
-
-enum LogLevel  { LOG_NORMAL, LOG_DEBUG, LOG_TRACE };
-
-void SetLogLevel(LogLevel level);
-```
-
-C++ file `Logger.cpp`
-```C++
-#include "Logger.h"
-
-#define LOGFAULT_USE_ANDROID_NDK_LOG
 #include "logfault/logfault.h"
+using namespace std;
 
-void SetLogLevel(LogLevel level) {
-    logfault::LogLevel use_level = logfault::LogLevel::INFO;
+int main() {
 
-    switch(level) {
-        case LOG_DEBUG:
-            use_level = logfault::LogLevel::DEBUG;
-            break;
-        case LOG_TRACE:
-            use_level = logfault::LogLevel::TRACE;
-            break;
-        case LOG_NORMAL:
-            break; // default
-    }
+    // Set up a log-handler to stdout
+    logfault::LogManager::Instance().AddHandler(make_unique<StreamHandler>(clog, logfault::LogLevel::TRACE));
 
-    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::AndroidHandler>(
-        "nynja-wallet", use_level));
+    LFLOG_DEBUG << "Logging to std::clog is enabled at DEBUG level";
 }
-```
-
-Swig code to generate wrapper code in Java
-```swig
-%module LoggerModule
-
-%include "enums.swg"
-
-%{
-#include "./Logger.h"
-%}
-
-%include "./Logger.h"
 
 ```
-
-That's it. Once compiled and loaded into the Android app, you can set enable the logging using Android NDK's log library with this Java statement:
-
-```java
-LoggerModule.SetLogLevel(LogLevel.LOG_DEBUG);
-
-```
+You can of course replace `clog` with any `std::ostream`, for example an open file to write to.
 
 ## Linux, Unix, syslog
 
-If you want to log to the syslog under Linux or Unix, just set up logging as this:
+If you want to log to the syslog under Linux or Unix, just set up logging like this:
 
 ```C++
 // Enable syslog
@@ -163,7 +124,7 @@ int main() {
 ```
 
 ## Windows EventLog
-The library can send log-events to the Windows EventLog.
+The library can send log-events to the Windows EventLog under Windows.
 
 If you want to do it properly, you need to create a  message template file, compile it,
 include it in the Visual Studio project, and then add it in the registry on the
@@ -192,25 +153,6 @@ int main( int argc, char *argv[]) {
     LFLOG_DEBUG << "Logging to the Windows EventLog is enabled at DEBUG level";
 }
 ```
-
-## Log to stdout or file
-
-Similarly, if you just want to log to standard output:
-
-```C++
-#include "logfault/logfault.h"
-using namespace std;
-
-int main() {
-
-    // Set up a log-handler to stdout
-    logfault::LogManager::Instance().AddHandler(make_unique<StreamHandler>(clog, logfault::LogLevel::TRACE));
-
-    LFLOG_DEBUG << "Logging to std::clog is enabled at DEBUG level";
-}
-
-```
-You can of course replace `clog` with any `std::ostream`, for example an open file to write to.
 
 ## Log via another log-system
 
@@ -262,59 +204,17 @@ int main() {
 In the last example, you will log to syslog at DEBUG level (all log messages, except those at trace - very verbose - level)
 and all log messages to stdout.
 
-## Logging
+# Date and time formatting
 
-When you log messages, you stream data into a temporary std::ostream object. So everything that goes into a std::ostream instance can be logged.
-I often find myself writing custom std::ostream operators to log things like enum names and internal data structures or
-object identifies.
+By default, *logfault* write a time-stamp like this `2018-10-10 09:26:46.821 EEST`.
 
-*Logfault* has two types of log macros. You have normal log macros, that are used like this:
+You can tweak that a bit with the following macros
 
-```C++
-LFLOG_ERROR << "Some error occurred: " << errno;
-LFLOG_DEBUG << "We are entering foo foo";
-```
+- **`LOGFAULT_USE_UTCZONE`** If 1, the time-stamp will be in UTC, else it will be in the local timezone. The default is 0.
+- **`LOGFAULT_TIME_FORMAT`** [Time format string](https://en.cppreference.com/w/cpp/io/manip/put_time) to use. The default is `"%Y-%m-%d %H:%M:%S."`.
+- **`LOGFAULT_TIME_PRINT_MILLISECONDS`** If 1, adds a 3-digit milliseconds count after the formatted date / time. The default is 1.
+- **`LOGFAULT_TIME_PRINT_TIMEZONE`** If 1, adds the time-zone after the formatted date / time and milliseconds count. The default is 1.
 
-These macros expand to something like:
-```C++
-if (log_event_log_level is within current_log_level_range
-    and we_are_indeed_logging) {
-
-    logstream << args ...;
-}
-```
-
-In other words, the streaming arguments will be ignored (and function arguments not called) unless we will actually log the line.
-If the log-level is set to NOTICE, all DEBUG and TRACE messages will be totally ignored and not consume any CPU. The
-only CPU consumed for such log statements is the check to see if the log statements are relevant.
-
-Usually this is fine. However, some times we need a lot of log statements to understand the cause of some weird bug.
-Normally I don't even want those log statements to be evaluated for relevance. For those statements, we have
-another type of log macros:
-
-```C++
-LFLOG_IFALL_TRACE("Show only if enabled" << 1 << 3 << 5);
-```
-
-Notice that the whole log statement is enclosed by `(` and `)`. These log statements are simply removed by
-the C++ preprocessor, unless `LOGFAULT_ENABLE_ALL` is defined when `logfault.h` is included.
-
-The full set of log-macros are:
-
-- **`LFLOG_ERROR`** Errors
-- **`LFLOG_WARN`** Warnings
-- **`LFLOG_NOTICE`** Notable events
-- **`LFLOG_INFO`** Information about what's going on
-- **`LFLOG_DEBUG`** Debug messages
-- **`LFLOG_TRACE`** Trace messages. These may give very detailed information about what's going on
-
-
-And a similar set of conditional macros that require `LOGFAULT_ENABLE_ALL` in order to work.
-
-- **`LFLOG_IFALL_ERROR()`** Errors
-- **`LFLOG_IFALL_WARN()`** Warnings
-- **`LFLOG_IFALL_NOTICE()`** Notable events
-- **`LFLOG_IFALL_INFO()`** Information about what's going on
-- **`LFLOG_IFALL_DEBUG()`** Debug messages
-- **`LFLOG_IFALL_TRACE()`** Trace messages. These may give very detailed information about what's going on
+Note that the time-stamp is only used when *logfault* formats the log-message. If the log-event is passed to
+a native log-handler, that handler will format the date and time according to it's own preferences.
 

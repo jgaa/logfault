@@ -41,6 +41,22 @@ Home: https://github.com/jgaa/logfault
 #include <thread>
 #include <vector>
 
+#ifndef LOGFAULT_USE_UTCZONE
+#   define LOGFAULT_USE_UTCZONE 0
+#endif
+
+#ifndef LOGFAULT_TIME_FORMAT
+#   define LOGFAULT_TIME_FORMAT "%Y-%m-%d %H:%M:%S."
+#endif
+
+#ifndef LOGFAULT_TIME_PRINT_MILLISECONDS
+#   define LOGFAULT_TIME_PRINT_MILLISECONDS 1
+#endif
+
+#ifndef LOGFAULT_TIME_PRINT_TIMEZONE
+#   define LOGFAULT_TIME_PRINT_TIMEZONE 1
+#endif
+
 #ifdef LOGFAULT_USE_SYSLOG
 #   include <syslog.h>
 #endif
@@ -116,10 +132,32 @@ namespace logfault {
         }
 
         void PrintMessage(std::ostream& out, const logfault::Message& msg) {
-            const auto tt = std::chrono::system_clock::to_time_t(msg.when_);
-            const auto tm = std::localtime(&tt);
+            auto tt = std::chrono::system_clock::to_time_t(msg.when_);
+            auto when_rounded = std::chrono::system_clock::from_time_t(tt);
+            if (when_rounded > msg.when_) {
+                --tt;
+                when_rounded -= std::chrono::seconds(1);
+            }
+            if (const auto tm = (LOGFAULT_USE_UTCZONE ? std::gmtime(&tt) : std::localtime(&tt))) {
+                const int ms = std::chrono::duration_cast<std::chrono::duration<int, std::milli>>(msg.when_ - when_rounded).count();
 
-            out << std::put_time(tm, "%c %Z") << ' ' << LevelName(msg.level_)
+                out << std::put_time(tm, LOGFAULT_TIME_FORMAT)
+#if LOGFAULT_TIME_PRINT_MILLISECONDS
+                    << std::setw(3) << std::setfill('0') << ms
+#endif
+#if LOGFAULT_TIME_PRINT_TIMEZONE
+#   if LOGFAULT_USE_UTCZONE
+                    << " UTC";
+#   else
+                    << std::put_time(tm, " %Z")
+#   endif
+#endif
+                    ;
+            } else {
+                out << "0000-00-00 00:00:00.000";
+            }
+
+            out << ' ' << LevelName(msg.level_)
                 << ' ' << std::this_thread::get_id()
                 << ' ' << msg.msg_;
         }
