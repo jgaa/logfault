@@ -33,6 +33,9 @@ In the following days I have spent a few extra hours to make it a little more ma
 - Can log to several log-targets at different log-levels.
 - Written by someone who has worked extensively with logging for decades (from tiny libraries and applications, to owning the log/event libraries in a two digits multi million line C++ application from one of the largest software vendors in the world).
 
+# When should you not use logfault?
+- In applications and servers that normally logs *lots* of information. *Logfault* is optimized for moderate log-volumes and occasional debugging session with extensive logging. The reason is that it use std::stream's which are relatively slow compared to raw buffer-based IO.
+
 # Logging
 
 When you log messages, you stream data into a temporary std::ostream object. So everything that goes into a std::ostream instance can be logged.
