@@ -76,16 +76,17 @@ Home: https://github.com/jgaa/logfault
 #	undef ERROR
 #endif
 
-#define LOGFAULT_LOG(level) \
+// Internal implementation detail
+#define LOGFAULT_LOG__(level) \
     ::logfault::LogManager::Instance().IsRelevant(level) && \
     ::logfault::Log(level).Line()
 
-#define LFLOG_ERROR LOGFAULT_LOG(logfault::LogLevel::ERROR)
-#define LFLOG_WARN LOGFAULT_LOG(logfault::LogLevel::WARN)
-#define LFLOG_NOTICE LOGFAULT_LOG(logfault::LogLevel::NOTICE)
-#define LFLOG_INFO LOGFAULT_LOG(logfault::LogLevel::INFO)
-#define LFLOG_DEBUG LOGFAULT_LOG(logfault::LogLevel::DEBUG)
-#define LFLOG_TRACE LOGFAULT_LOG(logfault::LogLevel::TRACE)
+#define LFLOG_ERROR LOGFAULT_LOG__(logfault::LogLevel::ERROR)
+#define LFLOG_WARN LOGFAULT_LOG__(logfault::LogLevel::WARN)
+#define LFLOG_NOTICE LOGFAULT_LOG__(logfault::LogLevel::NOTICE)
+#define LFLOG_INFO LOGFAULT_LOG__(logfault::LogLevel::INFO)
+#define LFLOG_DEBUG LOGFAULT_LOG__(logfault::LogLevel::DEBUG)
+#define LFLOG_TRACE LOGFAULT_LOG__(logfault::LogLevel::TRACE)
 
 #ifdef LOGFAULT_ENABLE_ALL
 #   define LFLOG_IFALL_ERROR(msg) LFLOG_ERROR << msg
