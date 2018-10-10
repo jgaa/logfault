@@ -15,6 +15,11 @@ Simply because I am tired of using different log methods on different platforms.
 For example - I currently develop a general C++ library under Linux, with few dependencies and no use of boost. It use CMake, and when I build it for testing, I log to std::clog, and inspect the logs in *kdevelop*. The library is used by apps for IOS and Android. Adding a dependency to Boost just to get the Boost.Log library may
 be more work than it's worth.
 
+*Logfaut* is not meant as a replacement of a sophisticated logger for a large application. It's more like a
+hack to get logging right, in libraries, smaller applications and mobile apps written in C++. It was written
+in a few hours when I desperately needed to get log-output from the C++ library for Android and IOS mentioned above.
+In the following days I have spent a few extra hours to make it a little more mature, and hopefully useful for other developers as well.
+
 # Logging
 
 When you log messages, you stream data into a temporary std::ostream object. So everything that goes into a std::ostream instance can be logged.
@@ -198,8 +203,8 @@ int main( int argc, char *argv[]) {
 ## Log via IOS and macOS' NSLog
 
 The logging support for IOS and macOS is rather primitive, compared to other systems.
-The good thing is that when you debug an Application in XCode, you can see the output
-from the applications standard output - so you don't really *need* to use the NSLog merthod.
+The good thing is that when you debug an application in Xcode, you can see the output
+from the applications standard output - so you don't really *need* to use the `NSLog` funtion.
 
 However, if you want to do it *right*, you log via `NSLog`, and *logfault* can help us with that.
 
