@@ -108,7 +108,7 @@ void SetLogLevel(LogLevel level) {
     }
 
     logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::AndroidHandler>(
-        "nynja-wallet", use_level));
+        "my-app", use_level));
 }
 ```
 

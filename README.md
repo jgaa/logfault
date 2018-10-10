@@ -10,9 +10,10 @@ Simply because I am tired of using different log methods on different platforms.
 
 *Logfault* can write log-events to traditional log-files, but it's also capable of using the native logging facility for the target platform for the target application. That meas that you can write your C++ library, and then let the consumer of the library configure logging for the platform they build it for.
 
-**Why not just use Boost.Log**? First of all - I don't like it. I find it over-engendered. It don't flush the log automatically. And - more importantly - a lot of projects don't use the boost library. It's a pain to use with Android NDK or IOS - and it's time-consuming to compile and include it in projects even on Windows.
+**Why not just use Boost.Log**? First of all - I don't like it. I find it over-engineered. It don't flush the log automatically. And - more importantly - a lot of projects don't use the boost library. It's a pain to use with Android NDK or IOS - and it's time-consuming to compile and include it in projects even on Windows.
 
-For example - I currently develop a general C++ library under Linux, with few dependencies and no use of boost. It use CMake, and when I build it for testing, I log to std::clog, and inspect the logs in *kdevelop*. The library is used by apps for IOS and Android.
+For example - I currently develop a general C++ library under Linux, with few dependencies and no use of boost. It use CMake, and when I build it for testing, I log to std::clog, and inspect the logs in *kdevelop*. The library is used by apps for IOS and Android. Adding a dependency to Boost just to get the Boost.Log library may
+be more work than it's worth.
 
 # Logging
 
@@ -153,6 +154,40 @@ int main( int argc, char *argv[]) {
     LFLOG_DEBUG << "Logging to the Windows EventLog is enabled at DEBUG level";
 }
 ```
+
+## Log via Android NDK's log library
+
+```C++
+#define LOGFAULT_USE_ANDROID_NDK_LOG
+#include "logfault/logfault.h"
+
+int main( int argc, char *argv[]) {
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::AndroidHandler>(
+        "my-app", logfault::LogLevel::DEBUG));
+
+    LFLOG_DEBUG << "Logging to Android logcat is enabled at DEBUG level";
+}
+```
+
+## Log via IOS and macOS' NSLog
+
+```C++
+#define LOGFAULT_USE_COCOA_NLOG_IMPL
+#include "logfault/logfault.h"
+
+int main( int argc, char *argv[]) {
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::CocoaHandler>(
+        logfault::LogLevel::DEBUG));
+
+    LFLOG_DEBUG << "Logging to IOS/ macOS NSLog() is enabled at DEBUG level";
+}
+```
+
+**Please notice** that for NSLog to work, you need to define `LOGFAULT_USE_COCOA_NLOG_IMPL` before including
+`logfault.h` in *one* .mm file. This is because of how the Apple development tools deal with Objective-C and
+C++. We cannot reach the Cocoa function `NSLog` from C++ code - only from Objective-C. And since we need
+C++ code to define the Cocoa handler, the implementation needs to go in *one* .mm file. You can create an
+empty .mm file for this purpose, or use an existing one.
 
 ## Log via another log-system
 
