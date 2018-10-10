@@ -25,12 +25,12 @@ In the following days I have spent a few extra hours to make it a little more ma
 - Header only library.
 - Very, very easy to use: `LFLOG_DEBUG << "We are entering foo foo: " << 1 << 2 << 3;`
 - Compact, less that 400 lines of code - including blank lines and comments.
-- Designed to make a tiny binary footprint; ideal for mobile ansd IoT.
+- Designed to make a tiny binary footprint; ideal for mobile and IoT.
 - Ideal for X-platform apps and libraries; logs to files, syslog, IOS/macOS `NSLog()`, Android's `__android_log_write()`, QT log macros and the Windows EventLog.
 - Log statements are not evaluated unless they will be logged (filtered by log-level)
 - Uses the C++ preprocessor to totally remove verbose log statements when you don't need them.
-- Flexible time-stamps, easy to use localtime or UTC.
-- Can log to several log-targers at different log-levels.
+- Flexible time-stamps, easy to use local-time or UTC.
+- Can log to several log-targets at different log-levels.
 - Written by someone who has worked extensively with logging for decades (from tiny libraries and applications, to owning the log/event libraries in a two digits multi million line C++ application from one of the largest software vendors in the world).
 
 # Logging
