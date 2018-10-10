@@ -178,6 +178,11 @@ int main( int argc, char *argv[]) {
 
 ## Log via Android NDK's log library
 
+In Android, native applications must use a primitive log library
+that is bundled with the NDK if they need to log anything to the
+Android system log. *Logfault* has a handler that can do that
+for us.
+
 ```C++
 #define LOGFAULT_USE_ANDROID_NDK_LOG
 #include "logfault/logfault.h"
@@ -191,6 +196,12 @@ int main( int argc, char *argv[]) {
 ```
 
 ## Log via IOS and macOS' NSLog
+
+The logging support for IOS and macOS is rather primitive, compared to other systems.
+The good thing is that when you debug an Application in XCode, you can see the output
+from the applications standard output - so you don't really *need* to use the NSLog merthod.
+
+However, if you want to do it *right*, you log via `NSLog`, and *logfault* can help us with that.
 
 ```C++
 #define LOGFAULT_USE_COCOA_NLOG_IMPL
