@@ -155,6 +155,27 @@ int main( int argc, char *argv[]) {
 }
 ```
 
+## Log via QT's qDebug() and friends
+
+This will simply send the log events to QT's logging macros, allowing any
+log-configuration for the QT application to also apply for *logfault*.
+
+It may be useful if you include non-QT libaries using *logfault*
+into a QT application.
+
+```C++
+#define LOGFAULT_USE_QT_LOG
+#include "logfault/logfault.h"
+
+int main( int argc, char *argv[]) {
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::QtHandler>(
+        logfault::LogLevel::DEBUG));
+
+    LFLOG_DEBUG << "Logging to QT's log macros is enabled at DEBUG level";
+}
+```
+
+
 ## Log via Android NDK's log library
 
 ```C++
