@@ -106,7 +106,7 @@ Home: https://github.com/jgaa/logfault
 
 namespace logfault {
 
-    enum class LogLevel { ERROR, WARN, INFO, NOTICE, DEBUG, TRACE };
+    enum class LogLevel { ERROR, WARN, NOTICE, INFO, DEBUG, TRACE };
 
     struct Message {
         Message(const std::string && msg, const LogLevel level)
