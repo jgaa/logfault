@@ -76,10 +76,21 @@ Home: https://github.com/jgaa/logfault
 #	undef ERROR
 #endif
 
+#ifndef LOGFAULT_LOCATION__
+#   if defined(LOGFAULT_ENABLE_LOCATION) && LOGFAULT_ENABLE_LOCATION
+#       define LOGFAULT_LOCATION__ << logfault::Handler::ShortenPath(__FILE__) << ':' << __LINE__ << " {" << __func__ << "} "
+#       ifndef LOGFAULT_LOCATION_LEVELS
+#           define LOGFAULT_LOCATION_LEVELS 3
+#       endif
+#   else
+#       define LOGFAULT_LOCATION__
+#   endif
+#endif
+
 // Internal implementation detail
 #define LOGFAULT_LOG__(level) \
     ::logfault::LogManager::Instance().IsRelevant(level) && \
-    ::logfault::Log(level).Line()
+    ::logfault::Log(level).Line() LOGFAULT_LOCATION__
 
 #define LFLOG_ERROR LOGFAULT_LOG__(logfault::LogLevel::ERROR)
 #define LFLOG_WARN LOGFAULT_LOG__(logfault::LogLevel::WARN)
@@ -162,6 +173,29 @@ namespace logfault {
                 << ' ' << std::this_thread::get_id()
                 << ' ' << msg.msg_;
         }
+
+#if defined(LOGFAULT_ENABLE_LOCATION) && LOGFAULT_ENABLE_LOCATION
+        static const char *ShortenPath(const char *path) {
+            assert(path);
+            if (LOGFAULT_LOCATION_LEVELS <= 0) {
+                return path;
+            }
+            std::vector<const char *> seperators;
+            for(const char *p = path; *p; ++p) {
+                if (((*p == '/')
+#if defined(WIN32) || defined(__WIN32) || defined(MSC_VER) || defined(WINDOWS)
+                    || (*p == '\\')
+#endif
+                ) && p[1]) {
+                    if (seperators.size() > LOGFAULT_LOCATION_LEVELS) {
+                        seperators.erase(seperators.begin());
+                    }
+                    seperators.push_back(p + 1);
+                }
+            }
+            return seperators.empty() ? path : seperators.front();
+        }
+#endif
 
     };
 
