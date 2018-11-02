@@ -96,7 +96,7 @@ Home: https://github.com/jgaa/logfault
 #define LFLOG_WARN LOGFAULT_LOG__(logfault::LogLevel::WARN)
 #define LFLOG_NOTICE LOGFAULT_LOG__(logfault::LogLevel::NOTICE)
 #define LFLOG_INFO LOGFAULT_LOG__(logfault::LogLevel::INFO)
-#define LFLOG_DEBUG LOGFAULT_LOG__(logfault::LogLevel::DEBUG)
+#define LFLOG_DEBUG LOGFAULT_LOG__(logfault::LogLevel::DEBUGGING)
 #define LFLOG_TRACE LOGFAULT_LOG__(logfault::LogLevel::TRACE)
 
 #ifdef LOGFAULT_ENABLE_ALL
@@ -117,7 +117,7 @@ Home: https://github.com/jgaa/logfault
 
 namespace logfault {
 
-    enum class LogLevel { ERROR, WARN, NOTICE, INFO, DEBUG, TRACE };
+    enum class LogLevel { ERROR, WARN, NOTICE, INFO, DEBUGGING, TRACE };
 
     struct Message {
         Message(const std::string && msg, const LogLevel level)
@@ -139,7 +139,7 @@ namespace logfault {
 
         static const std::string& LevelName(const LogLevel level) {
             static const std::array<std::string, 6> names =
-                {{"ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}};
+                {{"ERROR", "WARNING", "NOTICE", "INFO", "DEBUGGING", "TRACE"}};
             return names.at(static_cast<size_t>(level));
         }
 
@@ -285,7 +285,7 @@ namespace logfault {
                 case LogLevel::NOTICE:
                     qInfo() << msg.msg_;
                     break;
-                case LogLevel::DEBUG:
+                case LogLevel::DEBUGGING:
                 case LogLevel::TRACE:
                     qDebug() << msg.msg_;
                     break;
