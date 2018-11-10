@@ -380,6 +380,17 @@ namespace logfault {
             handlers_.push_back(std::move(handler));
         }
 
+        /*! Set handler.
+         *
+         * Remove any existing handlers.
+         */
+        void SetHandler(Handler::ptr_t && handler) {
+            std::lock_guard<std::mutex> lock{mutex_};
+            handlers_.clear();
+            level_ = handler->level_;
+            handlers_.push_back(std::move(handler));
+        }
+
         void SetLevel(LogLevel level) {
             level_ = level;
         }
