@@ -31,7 +31,7 @@ int main( int argc, char *argv[]) {
 
         cerr << "Log event: " << event.msg_ << std::endl;
 
-    }, logfault::LogLevel::DEBUG)};
+    }, logfault::LogLevel::DEBUGGING)};
     logfault::LogManager::Instance().AddHandler(move(proxy_handler));
 
 
