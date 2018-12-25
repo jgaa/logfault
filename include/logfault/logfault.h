@@ -426,18 +426,26 @@ private:
 
 } // namespace
 
-// stream operators for QT to make common datatypes simple to log
+// stream operators for QT to make common datatypes simple to log// stream operators for QT to make common datatypes simple to log
 #ifdef QBYTEARRAY_H
-std::ostream& operator << (std::ostream& out, const QByteArray& v) {
+inline std::ostream& operator << (std::ostream& out, const QByteArray& v) {
     return out << v.constData();
 }
 #endif
 
 #ifdef QSTRING_H
-std::ostream& operator << (std::ostream& out, const QString& v) {
+inline std::ostream& operator << (std::ostream& out, const QString& v) {
     return out << v.toUtf8().constData();
 }
 #endif
+
+#ifdef QHOSTADDRESS_H
+inline std::ostream& operator << (std::ostream& out, const QHostAddress& v) {
+   return out << v.toString().toUtf8().constData();
+}
+#endif
+
+
 
 
 #endif // _LOGFAULT_H
