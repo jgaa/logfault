@@ -426,5 +426,19 @@ private:
 
 } // namespace
 
+// stream operators for QT to make common datatypes simple to log
+#ifdef QBYTEARRAY_H
+std::ostream& operator << (std::ostream& out, const QByteArray& v) {
+    return out << v.constData();
+}
+#endif
+
+#ifdef QSTRING_H
+std::ostream& operator << (std::ostream& out, const QString& v) {
+    return out << v.toUtf8().constData();
+}
+#endif
+
+
 #endif // _LOGFAULT_H
 
