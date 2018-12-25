@@ -1,5 +1,4 @@
 
-enable_testing()
 
 macro (ADD_AND_RUN_UNITTEST testname targetname)
 set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
