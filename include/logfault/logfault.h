@@ -32,6 +32,7 @@ Home: https://github.com/jgaa/logfault
 #include <array>
 #include <assert.h>
 #include <chrono>
+#include <fstream>
 #include <functional>
 #include <iomanip>
 #include <memory>
@@ -202,6 +203,8 @@ namespace logfault {
     class StreamHandler : public Handler {
     public:
         StreamHandler(std::ostream& out, LogLevel level) : Handler(level), out_{out} {}
+        StreamHandler(std::string& path, LogLevel level) : Handler(level)
+        , file_{new std::ofstream{path, std::ios::ate}}, out_{*file_} {}
 
         void LogMessage(const Message& msg) override {
             PrintMessage(out_, msg);
@@ -209,6 +212,7 @@ namespace logfault {
         }
 
     private:
+        std::unique_ptr<std::ostream> file_;
         std::ostream& out_;
     };
 
