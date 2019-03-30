@@ -117,7 +117,7 @@ Home: https://github.com/jgaa/logfault
 
 namespace logfault {
 
-    enum class LogLevel { ERROR, WARN, NOTICE, INFO, DEBUGGING, TRACE };
+    enum class LogLevel { DISABLED, ERROR, WARN, NOTICE, INFO, DEBUGGING, TRACE };
 
     struct Message {
         Message(const std::string && msg, const LogLevel level)
@@ -138,8 +138,8 @@ namespace logfault {
         const LogLevel level_;
 
         static const std::string& LevelName(const LogLevel level) {
-            static const std::array<std::string, 6> names =
-                {{"ERROR", "WARNING", "NOTICE", "INFO", "DEBUGGING", "TRACE"}};
+            static const std::array<std::string, 7> names =
+                {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUGGING", "TRACE"}};
             return names.at(static_cast<size_t>(level));
         }
 
@@ -390,6 +390,16 @@ namespace logfault {
             level_ = handler->level_;
             handlers_.push_back(std::move(handler));
         }
+        
+         /*! Remove all existing handlers
+          * 
+          */
+        void ClearHandlers() {
+            std::lock_guard<std::mutex> lock{mutex_};
+            handlers_.clear();
+            level_ = LogLevel::DISABLED;
+        }
+
 
         void SetLevel(LogLevel level) {
             level_ = level;
@@ -426,7 +436,7 @@ private:
 
 } // namespace
 
-// stream operators for QT to make common datatypes simple to log// stream operators for QT to make common datatypes simple to log
+// stream operators for QT to make common datatypes simple to log
 #ifdef QBYTEARRAY_H
 inline std::ostream& operator << (std::ostream& out, const QByteArray& v) {
     return out << v.constData();
