@@ -203,8 +203,8 @@ namespace logfault {
     class StreamHandler : public Handler {
     public:
         StreamHandler(std::ostream& out, LogLevel level) : Handler(level), out_{out} {}
-        StreamHandler(std::string& path, LogLevel level) : Handler(level)
-        , file_{new std::ofstream{path, std::ios::ate}}, out_{*file_} {}
+        StreamHandler(std::string& path, LogLevel level, const bool truncate = false) : Handler(level)
+        , file_{new std::ofstream{path, truncate ? std::ios::trunc : std::ios::app}}, out_{*file_} {}
 
         void LogMessage(const Message& msg) override {
             PrintMessage(out_, msg);
