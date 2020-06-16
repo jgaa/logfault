@@ -116,7 +116,7 @@ using namespace std;
 int main() {
 
     // Set up a log-handler to stdout
-    logfault::LogManager::Instance().AddHandler(make_unique<StreamHandler>(clog, logfault::LogLevel::TRACE));
+    logfault::LogManager::Instance().AddHandler(make_unique<logfault::StreamHandler>(clog, logfault::LogLevel::TRACE));
 
     LFLOG_DEBUG << "Logging to std::clog is enabled at DEBUG level";
 }
@@ -279,11 +279,11 @@ using namespace std;
 int main() {
 
     // Set up a log-handler to syslog
-    logfault::LogManager::Instance().AddHandler(make_unique<SyslogHandler>(logfault::LogLevel::DEBUG));
+    logfault::LogManager::Instance().AddHandler(make_unique<logfault::SyslogHandler>(logfault::LogLevel::DEBUG));
     LFLOG_DEBUG << "Logging to syslog is enabled at DEBUG level";
 
     // Set up a log-handler to stdout
-    logfault::LogManager::Instance().AddHandler(make_unique<StreamHandler>(clog, logfault::LogLevel::TRACE));
+    logfault::LogManager::Instance().AddHandler(make_unique<logfault::StreamHandler>(clog, logfault::LogLevel::TRACE));
     LFLOG_DEBUG << "Logging to std::clog is enabled at TRACE level";
 }
 
