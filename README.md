@@ -138,7 +138,7 @@ using namespace std;
 int main() {
 
     // Set up a log-handler to syslog
-    logfault::LogManager::Instance().AddHandler(make_unique<SyslogHandler>(logfault::LogLevel::DEBUG));
+    logfault::LogManager::Instance().AddHandler(make_unique<SyslogHandler>(logfault::LogLevel::DEBUGGING));
 
     LFLOG_DEBUG << "Logging to syslog is enabled at DEBUG level";
 }
@@ -169,7 +169,7 @@ Example of application logging to the Windows EventLog:
 #include "logfault/logfault.h"
 
 int main( int argc, char *argv[]) {
-    std::unique_ptr<logfault::Handler> eventhandler{new logfault::WindowsEventLogHandler("example", logfault::LogLevel::DEBUG)};
+    std::unique_ptr<logfault::Handler> eventhandler{new logfault::WindowsEventLogHandler("example", logfault::LogLevel::DEBUGGING)};
     logfault::LogManager::Instance().AddHandler(move(eventhandler));
 
     LFLOG_DEBUG << "Logging to the Windows EventLog is enabled at DEBUG level";
@@ -190,7 +190,7 @@ into a QT application.
 
 int main( int argc, char *argv[]) {
     logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::QtHandler>(
-        logfault::LogLevel::DEBUG));
+        logfault::LogLevel::DEBUGGING));
 
     LFLOG_DEBUG << "Logging to QT's log macros is enabled at DEBUG level";
 }
@@ -210,7 +210,7 @@ for us.
 
 int main( int argc, char *argv[]) {
     logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::AndroidHandler>(
-        "my-app", logfault::LogLevel::DEBUG));
+        "my-app", logfault::LogLevel::DEBUGGING));
 
     LFLOG_DEBUG << "Logging to Android logcat is enabled at DEBUG level";
 }
@@ -230,7 +230,7 @@ However, if you want to do it *right*, you log via `NSLog`, and *logfault* can h
 
 int main( int argc, char *argv[]) {
     logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::CocoaHandler>(
-        logfault::LogLevel::DEBUG));
+        logfault::LogLevel::DEBUGGING));
 
     LFLOG_DEBUG << "Logging to IOS/ macOS NSLog() is enabled at DEBUG level";
 }
@@ -259,7 +259,7 @@ int main() {
         // Here, you could send the log-event to whatever you want
         cerr << "Log event: " << event.msg_ << std::endl;
 
-    }, logfault::LogLevel::DEBUG));
+    }, logfault::LogLevel::DEBUGGING));
 
     LFLOG_DEBUG << "Logging to proxy is enabled at DEBUG level";
 }
@@ -279,7 +279,7 @@ using namespace std;
 int main() {
 
     // Set up a log-handler to syslog
-    logfault::LogManager::Instance().AddHandler(make_unique<logfault::SyslogHandler>(logfault::LogLevel::DEBUG));
+    logfault::LogManager::Instance().AddHandler(make_unique<SyslogHandler>(logfault::LogLevel::DEBUGGING));
     LFLOG_DEBUG << "Logging to syslog is enabled at DEBUG level";
 
     // Set up a log-handler to stdout

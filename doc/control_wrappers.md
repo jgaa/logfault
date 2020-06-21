@@ -46,7 +46,7 @@ void SetLogLevel(LogLevel level) {
 
     switch(level) {
         case LOG_DEBUG:
-            use_level = logfault::LogLevel::DEBUG;
+            use_level = logfault::LogLevel::DEBUGGING;
             break;
         case LOG_TRACE:
             use_level = logfault::LogLevel::TRACE;
@@ -98,7 +98,7 @@ void SetLogLevel(LogLevel level) {
 
     switch(level) {
         case LOG_DEBUG:
-            use_level = logfault::LogLevel::DEBUG;
+            use_level = logfault::LogLevel::DEBUGGING;
             break;
         case LOG_TRACE:
             use_level = logfault::LogLevel::TRACE;
