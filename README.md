@@ -10,10 +10,11 @@ Simply because I am tired of using different log methods on different platforms.
 
 *Logfault* can write log-events to traditional log-files, but it's also capable of using the native logging facility for the target platform for the target application. That meas that you can write your C++ library, and then let the consumer of the library configure logging for the platform they build it for.
 
-**Why not just use Boost.Log**? First of all - I don't like it. I find it over-engineered. It don't flush the log automatically. And - more importantly - a lot of projects don't use the boost library. It's a pain to use with Android NDK or IOS - and it's time-consuming to compile and include it in projects even on Windows.
+**Why not just use Boost.Log**? First of all - I don't like it. I find it over-engineered. It don't flush the log automatically. And - more importantly - a lot of projects don't use the boost library. It's a pain to use with Android NDK or IOS - and it's time-consuming to compile and include it in projects even on Windows. 
+(As of June 2020; with Boost 1.70 - 1.73 (at least) there is a bug in cmake that breaks linking Boost.Log (because Boost.Log require two - yes two - binary libraries to shoot itself in the foot with), making it pretty hard to even use it. Not the first time. There have been plenty of linking problems with Booost.Log in the past. This is the kind of friction that makes C++ slow to work with and takes developers focus away from the task at hand).
 
 For example - I currently develop a general C++ library under Linux, with few dependencies and no use of boost. It use CMake, and when I build it for testing, I log to std::clog, and inspect the logs in *kdevelop*. The library is used by apps for IOS and Android. Adding a dependency to Boost just to get the Boost.Log library may
-be more work than it's worth.
+be a lot more work than it's worth.
 
 *Logfaut* is not meant as a replacement of a sophisticated logger for a large application. It's more like a
 hack to get logging right, in libraries, smaller applications and mobile apps written in C++. It was written
