@@ -3,7 +3,7 @@
 /*
 MIT License
 
-Copyright (c) 2018 Jarle Aase
+Copyright (c) 2018 - 2021 Jarle Aase
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -116,6 +116,28 @@ Home: https://github.com/jgaa/logfault
 #   define LFLOG_IFALL_TRACE(msg)
 #endif
 
+#ifndef LOGFAULT_THREAD_NAME
+#   if defined (LOGFAULT_USE_THREAD_NAME)
+#       include <pthread.h>
+        inline const char *logfault_get_thread_name_() noexcept {
+            thread_local std::array<char, 16> buffer = {};
+            if (pthread_getname_np(pthread_self(), buffer.data(), buffer.size()) == 0) {
+                return buffer.data();
+            }
+            return "err pthread_getname_np";
+        }
+#       define LOGFAULT_THREAD_NAME logfault_get_thread_name_()
+#
+#   elif defined(LOGFAULT_USE_TID_AS_NAME)
+#       include <unistd.h>
+#       include <sys/syscall.h>
+#       define LOGFAULT_THREAD_NAME syscall(__NR_gettid)
+#   else
+#       define LOGFAULT_THREAD_NAME std::this_thread::get_id()
+#   endif
+#endif
+
+
 namespace logfault {
 
     enum class LogLevel { DISABLED, ERROR, WARN, NOTICE, INFO, DEBUGGING, TRACE };
@@ -171,7 +193,7 @@ namespace logfault {
             }
 
             out << ' ' << LevelName(msg.level_)
-                << ' ' << std::this_thread::get_id()
+                << ' ' << LOGFAULT_THREAD_NAME
                 << ' ' << msg.msg_;
         }
 

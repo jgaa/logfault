@@ -7,11 +7,14 @@
 //#define LOGFAULT_TIME_PRINT_MILLISECONDS 0
 //#define LOGFAULT_USE_SYSLOG
 //#define LOGFAULT_USE_WINDOWS_EVENTLOG
+//#define LOGFAULT_USE_THREAD_NAME
+//#define LOGFAULT_USE_TID_AS_NAME
 #include "logfault/logfault.h"
 
 using namespace std;
 
 int main( int argc, char *argv[]) {
+
 
     std::unique_ptr<logfault::Handler> filehandler{new logfault::StreamHandler(clog, logfault::LogLevel::TRACE)};
     logfault::LogManager::Instance().AddHandler(move(filehandler));

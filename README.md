@@ -307,3 +307,13 @@ You can tweak that a bit with the following macros
 Note that the time-stamp is only used when *logfault* formats the log-message. If the log-event is passed to
 a native log-handler, that handler will format the date and time according to it's own preferences.
 
+# Thread name
+By default, *logfault* use `std::this_thread::get_id()` to show a platform independent unique name for the thread producing a log event. 
+
+You can override this by defining this macro:
+- **`LOGFAULT_THREAD_NAME`** Use your own macro directly to identify the current thread.
+
+Under *Linux*, you can use these additional defines (before including `logfault/logfault.h`) to modify this.
+
+- **`LOGFAULT_USE_TID_AS_NAME`** Use the system wide thread id. This is the same ID that show up in tools such as top, htop, atop etc. as *pid*. This is useful if yo use such tools to examine your running application.
+- **`LOGFAULT_USE_THREAD_NAME`** Use whatever name you assigned to each therad with `pthread_setname_np()`. You may find this useful if you name each individual thread, and step trough your application with the debugger. The log-events will then match the thread-names showed by the debugger.
