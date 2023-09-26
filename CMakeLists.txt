@@ -12,11 +12,15 @@ endmacro(SET_CPP_STANDARD)
 find_package (Threads)
 set(DEFAULT_LIBRARIES  ${CMAKE_THREAD_LIBS_INIT})
 include_directories(
-    ${CMAKE_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/include
     )
 
-enable_testing()
-add_subdirectory(tests)
+option(LOGFAULT_BUILD_TESTS "Build tests" ON)
+
+if(LOGFAULT_BUILD_TESTS)
+	enable_testing()
+	add_subdirectory(tests)
+endif()
 
 add_library(${PROJECT_NAME} INTERFACE)
 
