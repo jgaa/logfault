@@ -300,9 +300,9 @@ namespace logfault {
         : Handler(level) {}
 
         void LogMessage(const logfault::Message& msg) override {
-            switch(msg.level_ {
+            switch(msg.level_) {
                 case LogLevel::ERROR:
-                    qFatal() << msg.msg_;
+                    qFatal() << "[Error] "<< msg.msg_;
                     break;
                 case LogLevel::WARN:
                     qWarning() << msg.msg_;
@@ -315,6 +315,8 @@ namespace logfault {
                 case LogLevel::TRACE:
                     qDebug() << msg.msg_;
                     break;
+                default:
+                    ; // Nothing
             }
         }
     };

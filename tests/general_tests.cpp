@@ -4,11 +4,12 @@
 #define LOGFAULT_ENABLE_ALL
 //#define LOGFAULT_USE_UTCZONE 1
 //#define LOGFAULT_TIME_FORMAT "%c"
-//#define LOGFAULT_TIME_PRINT_MILLISECONDS 0
-//#define LOGFAULT_USE_SYSLOG
+//#define LOGFAULT_TIME_PRINT_MILLISECONDS 0#define LOGFAULT_USE_SYSLOG
 //#define LOGFAULT_USE_WINDOWS_EVENTLOG
 //#define LOGFAULT_USE_THREAD_NAME
 //#define LOGFAULT_USE_TID_AS_NAME
+//#define LOGFAULT_USE_QT_LOG
+//#define LOGFAULT_USE_SYSLOG 1
 #include "logfault/logfault.h"
 
 using namespace std;
@@ -16,26 +17,25 @@ using namespace std;
 int main( int argc, char *argv[]) {
 
 
-    std::unique_ptr<logfault::Handler> filehandler{new logfault::StreamHandler(clog, logfault::LogLevel::TRACE)};
-    logfault::LogManager::Instance().AddHandler(move(filehandler));
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::StreamHandler>(clog, logfault::LogLevel::TRACE));
 
 #ifdef LOGFAULT_USE_WINDOWS_EVENTLOG
-	std::unique_ptr<logfault::Handler> eventhandler{new logfault::WindowsEventLogHandler("general_tests", logfault::LogLevel::DEBUG)};
-	logfault::LogManager::Instance().AddHandler(move(eventhandler));
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::WindowsEventLogHandler>("general_tests", logfault::LogLevel::DEBUGGING));
 #endif
 
 #ifdef LOGFAULT_USE_SYSLOG
-    std::unique_ptr<logfault::Handler> syslog_handler{ new logfault::SyslogHandler(logfault::LogLevel::DEBUG) };
-    logfault::LogManager::Instance().AddHandler(move(syslog_handler));
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::SyslogHandler>(logfault::LogLevel::DEBUGGING));
 #endif
 
+#ifdef LOGFAULT_USE_QT_LOG
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::QtHandler>(logfault::LogLevel::DEBUGGING));
+#endif
 
-    std::unique_ptr<logfault::Handler> proxy_handler{ new logfault::ProxyHandler([](const logfault::Message& event) {
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::ProxyHandler>([](const logfault::Message& event) {
 
-        cerr << "Log event: " << event.msg_ << std::endl;
+        cerr << "Log event from proxy: " << event.msg_ << std::endl;
 
-    }, logfault::LogLevel::DEBUGGING)};
-    logfault::LogManager::Instance().AddHandler(move(proxy_handler));
+    }, logfault::LogLevel::DEBUGGING));
 
 
     LFLOG_DEBUG << "Testing" << 1 << 2 << 3;

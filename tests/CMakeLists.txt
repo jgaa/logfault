@@ -1,24 +1,18 @@
 
 
-macro (ADD_AND_RUN_UNITTEST testname targetname)
-set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
-SET_CPP_STANDARD(${targetname})
-add_test(NAME ${testname} COMMAND ${targetname})
-if (AUTORUN_UNIT_TESTS)
-    add_custom_command(
-        TARGET ${targetname}
-        POST_BUILD
-        COMMENT "running ${testname}"
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIGURATION> -R "${testname}"  --output-on-failure
+option(WITH_QT "Enable QT" OFF)
+
+if (WITH_QT)
+    add_definitions(-DLOGFAULT_USE_QT_LOG=1)
+    find_package(Qt6 6.4 REQUIRED COMPONENTS Test)
+    qt_standard_project_setup(REQUIRES 6.5)
+    qt_add_executable(general_tests general_tests.cpp)
+
+else()
+    add_executable(general_tests general_tests.cpp)
+    target_link_libraries(general_tests
+        ${DEFAULT_LIBRARIES}
     )
 endif()
-endmacro()
 
-
-add_executable(general_tests general_tests.cpp)
-target_link_libraries(general_tests
-    ${DEFAULT_LIBRARIES}
-)
-ADD_AND_RUN_UNITTEST(GENERAL_TESTS general_tests)
 
