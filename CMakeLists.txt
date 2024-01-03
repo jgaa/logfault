@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
-project(logfault VERSION 0.3.0 LANGUAGES CXX)
+
+project(logfault VERSION 0.3.1 LANGUAGES CXX)
 include(GNUInstallDirs)
 
 message(STATUS "Using ${CMAKE_CXX_COMPILER}")

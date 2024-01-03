@@ -302,7 +302,7 @@ namespace logfault {
         void LogMessage(const logfault::Message& msg) override {
             switch(msg.level_) {
                 case LogLevel::ERROR:
-                    qFatal() << "[Error] "<< msg.msg_;
+                    qWarning() << "[Error] "<< msg.msg_;
                     break;
                 case LogLevel::WARN:
                     qWarning() << msg.msg_;
