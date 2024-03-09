@@ -1,0 +1,7 @@
+{
+  "name": "logfault",
+  "license": "GPL-3.0",
+  "dependencies": [
+    "gtest"
+  ]
+}
