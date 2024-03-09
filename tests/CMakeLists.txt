@@ -1,7 +1,17 @@
 
 
+message ("GTEST_LIBRARIES: ${GTEST_LIBRARIES}")
+message ("GTest_LIBRARIES: ${GTest_LIBRARIES}")
+
+message ("GTEST_INCLUDE_DIRS: ${GTEST_INCLUDE_DIRS}")
+message ("GTest_INCLUDE_DIRS: ${GTest_INCLUDE_DIRS}")
+
 if (NOT GTEST_LIBRARIES)
-    set (GTEST_LIBRARIES gtest::gtest)
+    set (GTEST_LIBRARIES ${GTest_LIBRARIES})
+endif()
+
+if (NOT GTEST_INCLUDE_DIRS)
+    set (GTEST_INCLUDE_DIRS ${GTest_INCLUDE_DIRS})
 endif()
 
 option(WITH_QT "Enable QT" OFF)
@@ -21,14 +31,6 @@ option(WITH_QT "Enable QT" OFF)
 
 ####### default_to_clog
 
-message ("GTEST_LIBRARIES: ${GTEST_LIBRARIES}")
-message ("GTest_LIBRARIES: ${GTest_LIBRARIES}")
-
-message ("GTEST_INCLUDE_DIRS: ${GTEST_INCLUDE_DIRS}")
-message ("GTest_INCLUDE_DIRS: ${GTest_INCLUDE_DIRS}")
-
-message("CONAN_LIBS: ${CONAN_LIBS}")
-message("CONAN_INCLUDE_DIRS: ${CONAN_INCLUDE_DIRS}")
 
 add_executable(default_to_clog
     default_to_clog.cpp
@@ -40,13 +42,13 @@ target_include_directories(default_to_clog
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LOGFAULT_ROOT}/include
-#    ${GTEST_INCLUDE_DIRS}
-    ${GTest_INCLUDE_DIRS}
+    ${GTEST_INCLUDE_DIRS}
+    #${GTest_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/exports
     )
 
 target_link_libraries(default_to_clog
-    ${GTest_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
@@ -66,13 +68,13 @@ target_include_directories(default_to_clog_with_tid
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LOGFAULT_ROOT}/include
-#    ${GTEST_INCLUDE_DIRS}
-    ${GTest_INCLUDE_DIRS}
+    ${GTEST_INCLUDE_DIRS}
+    #${GTest_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/exports
     )
 
 target_link_libraries(default_to_clog_with_tid
-    ${GTest_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
