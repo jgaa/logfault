@@ -37,6 +37,7 @@ jobs:
             ${{ env.XDG_CACHE_HOME }}/vcpkg/archives
             ${{ env.LOCALAPPDATA }}\vcpkg\archives
             ${{ env.APPDATA }}\vcpkg\archives
+            ${{ env.HOME }}/.conan2
           key: ${{ runner.os }}-${{ matrix.compiler }}-${{ env.BUILD_TYPE }}-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('./vcpkg.json')}}
           restore-keys: |
             ${{ runner.os }}-${{ env.BUILD_TYPE }}-
@@ -80,10 +81,28 @@ jobs:
           cmake .. -DCMAKE_BUILD_TYPE=Release -G "Ninja" -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake
           cmake --build .
           popd
-
     
       - name: Run tests
         run: |
           pushd build
           ctest -C Release
           popd
+
+      - name: install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.12
+      - name: Install pipx
+        uses: CfirTsabari/actions-pipx@v1
+
+      - name: Install Conan
+        run: |
+            pipx install conan
+            conan profile detect --force
+  
+      - name: Test build with Conan
+        run: |
+            mkdir conan-build && cd conan-build
+            conan install .. --build missing
+            conan create .. --build 'logfault/*'
+
