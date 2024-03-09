@@ -34,6 +34,7 @@ target_include_directories(default_to_clog
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LOGFAULT_ROOT}/include
     ${GTEST_INCLUDE_DIRS}
+    ${GTest_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/exports
     )
 
@@ -59,6 +60,7 @@ target_include_directories(default_to_clog_with_tid
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LOGFAULT_ROOT}/include
     ${GTEST_INCLUDE_DIRS}
+    ${GTest_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/exports
     )
 
