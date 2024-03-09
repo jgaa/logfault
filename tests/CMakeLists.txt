@@ -1,4 +1,7 @@
 
+if (NOT GTEST_LIBRARIES)
+    set (GTEST_LIBRARIES gtest)
+endif()
 
 option(WITH_QT "Enable QT" OFF)
 
@@ -21,7 +24,7 @@ add_executable(default_to_clog
     default_to_clog.cpp
     )
 
-set_property(TARGET default_to_clog PROPERTY CXX_STANDARD 11)
+set_property(TARGET default_to_clog PROPERTY CXX_STANDARD 14)
 
 target_include_directories(default_to_clog
     PRIVATE
@@ -45,7 +48,7 @@ add_executable(default_to_clog_with_tid
 
 target_compile_definitions(default_to_clog_with_tid PRIVATE LOGFAULT_USE_TID_AS_NAME=1)
 
-set_property(TARGET default_to_clog_with_tid PROPERTY CXX_STANDARD 11)
+set_property(TARGET default_to_clog_with_tid PROPERTY CXX_STANDARD 14)
 
 target_include_directories(default_to_clog_with_tid
     PRIVATE

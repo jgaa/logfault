@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+.pytest_cache
+build
+*.user
+.vscode
+*.sln
+*.vcxproj
+CMakeUserPresets.json
