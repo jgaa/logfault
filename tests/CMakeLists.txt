@@ -40,13 +40,13 @@ target_include_directories(default_to_clog
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LOGFAULT_ROOT}/include
-    ${GTEST_INCLUDE_DIRS}
+#    ${GTEST_INCLUDE_DIRS}
     ${GTest_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/exports
     )
 
 target_link_libraries(default_to_clog
-    ${GTEST_LIBRARIES}
+    ${GTest_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
@@ -66,13 +66,13 @@ target_include_directories(default_to_clog_with_tid
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LOGFAULT_ROOT}/include
-    ${GTEST_INCLUDE_DIRS}
+#    ${GTEST_INCLUDE_DIRS}
     ${GTest_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/exports
     )
 
 target_link_libraries(default_to_clog_with_tid
-    ${GTEST_LIBRARIES}
+    ${GTest_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
