@@ -97,7 +97,7 @@ jobs:
       - name: Install Conan
         run: |
             pipx install conan
-            conan profile new default --detect
+            conan profile detect --force
   
       - name: Test build with Conan
         run: |
