@@ -1,4 +1,6 @@
 
+// General tests for manual testing during development
+
 #include <iostream>
 
 #define LOGFAULT_ENABLE_ALL

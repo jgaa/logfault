@@ -1,7 +1,14 @@
 cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 
-project(logfault VERSION 0.3.1 LANGUAGES CXX)
+project(logfault
+    DESCRIPTION "Simple to use, header only C++ library for application-logging on all major platforms."
+    HOMEPAGE_URL https://github.com/jgaa/logfault
+    VERSION 0.5.0
+    LANGUAGES CXX)
+
 include(GNUInstallDirs)
+
+set(LOGFAULT_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 message(STATUS "Using ${CMAKE_CXX_COMPILER}")
 
@@ -19,8 +26,9 @@ include_directories(
 option(LOGFAULT_BUILD_TESTS "Build tests" ON)
 
 if(LOGFAULT_BUILD_TESTS)
-	enable_testing()
-	add_subdirectory(tests)
+    find_package(GTest REQUIRED)
+    enable_testing()
+    add_subdirectory(tests)
 endif()
 
 add_library(${PROJECT_NAME} INTERFACE)
