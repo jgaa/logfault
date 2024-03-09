@@ -1,6 +1,9 @@
 
+message ("GTEST_LIBRARIES: ${GTEST_LIBRARIES}")
+message ("GTest_LIBRARIES: ${GTest_LIBRARIES}")
+
 if (NOT GTEST_LIBRARIES)
-    set (GTEST_LIBRARIES gtest)
+    set (GTEST_LIBRARIES gtest::gtest)
 endif()
 
 option(WITH_QT "Enable QT" OFF)
