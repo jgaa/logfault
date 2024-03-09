@@ -128,10 +128,16 @@ Home: https://github.com/jgaa/logfault
         }
 #       define LOGFAULT_THREAD_NAME logfault_get_thread_name_()
 #
-#   elif defined(LOGFAULT_USE_TID_AS_NAME)
+#   elif defined(LOGFAULT_USE_TID_AS_NAME)  && defined(__linux__)
 #       include <unistd.h>
 #       include <sys/syscall.h>
 #       define LOGFAULT_THREAD_NAME syscall(__NR_gettid)
+#   elif defined(LOGFAULT_USE_TID_AS_NAME)  && defined(__unix__)
+#       include <pthread.h>
+#       define LOGFAULT_THREAD_NAME pthread_self()
+#   elif defined(LOGFAULT_USE_TID_AS_NAME)  && defined(WIN32)
+#       include <windows.h>
+#       define LOGFAULT_THREAD_NAME GetCurrentThreadId()
 #   else
 #       define LOGFAULT_THREAD_NAME std::this_thread::get_id()
 #   endif
