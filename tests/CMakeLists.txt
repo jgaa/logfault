@@ -25,9 +25,9 @@ set_property(TARGET default_to_clog PROPERTY CXX_STANDARD 11)
 
 target_include_directories(default_to_clog
     PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}
-    $<BUILD_INTERFACE:${LOGFAULT_ROOT}/include
-    $<BUILD_INTERFACE:${GTEST_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${LOGFAULT_ROOT}/include
+    ${GTEST_INCLUDE_DIRS}
     )
 
 target_link_libraries(default_to_clog
@@ -49,9 +49,9 @@ set_property(TARGET default_to_clog_with_tid PROPERTY CXX_STANDARD 11)
 
 target_include_directories(default_to_clog_with_tid
     PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}
-    $<BUILD_INTERFACE:${LOGFAULT_ROOT}/include
-    $<BUILD_INTERFACE:${GTEST_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${LOGFAULT_ROOT}/include
+    ${GTEST_INCLUDE_DIRS}
     )
 
 target_link_libraries(default_to_clog_with_tid

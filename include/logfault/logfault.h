@@ -143,6 +143,11 @@ Home: https://github.com/jgaa/logfault
 #   endif
 #endif
 
+#ifdef ERROR
+// Thank you SOOO much Microsoft!
+#   undef ERROR
+#endif
+
 
 namespace logfault {
 

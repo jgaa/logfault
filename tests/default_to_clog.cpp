@@ -102,6 +102,22 @@ TEST(Logfault, HelloTid) {
 }
 #endif
 
+#if defined(WIN32) && defined(LOGFAULT_USE_TID_AS_NAME)
+TEST(Logfault, HelloTid) {
+
+    string output;
+    {
+        ClogRedirector redir{ output };
+        LFLOG_INFO << "Test log";
+    }
+
+    regex pattern{ R"(.* INFO [0-9]{1,10} Test log.*)" };
+    EXPECT_TRUE(regex_search(output, pattern));
+    cout << "Output: " << output << endl;
+}
+#endif
+
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
 
