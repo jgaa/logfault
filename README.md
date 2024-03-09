@@ -1,5 +1,7 @@
 # logfault
 
+[![CI](https://github.com/jgaa/logfault/actions/workflows/ci.yaml/badge.svg)](https://github.com/jgaa/logfault/actions/workflows/ci.yaml)
+
 Simple to use, header only C++ library for application-logging on all major platforms.
 
 No dependencies, except the standard-library for C++11 and platform dependent logging libraries, like `log` for Android.
