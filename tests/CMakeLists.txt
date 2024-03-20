@@ -1,3 +1,12 @@
+
+if(TARGET GTest::gtest)
+    set(GTEST_LIBRARIES GTest::gtest)
+elseif(TARGET gtest::gtest)
+    set(GTEST_LIBRARIES gtest::gtest)
+else()
+    message(FATAL_ERROR "Neither GTest::gtest nor gtest::gtest targets were found")
+endif()
+
 ####### default_to_clog
 
 add_executable(default_to_clog
@@ -15,7 +24,7 @@ target_include_directories(default_to_clog
     )
 
 target_link_libraries(default_to_clog
-    GTest::gtest
+    ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
@@ -40,7 +49,7 @@ target_include_directories(default_to_clog_with_tid
     )
 
 target_link_libraries(default_to_clog_with_tid
-    GTest::gtest
+    ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
