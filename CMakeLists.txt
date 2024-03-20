@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
 project(logfault
     DESCRIPTION "Simple to use, header only C++ library for application-logging on all major platforms."
     HOMEPAGE_URL https://github.com/jgaa/logfault
-    VERSION 0.5.0
+    VERSION 0.5.1
     LANGUAGES CXX)
 
 include(GNUInstallDirs)
@@ -27,6 +27,7 @@ option(LOGFAULT_BUILD_TESTS "Build tests" ON)
 
 if(LOGFAULT_BUILD_TESTS)
     find_package(GTest REQUIRED)
+    include(CTest)
     enable_testing()
     add_subdirectory(tests)
 endif()

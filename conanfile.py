@@ -2,11 +2,12 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout
 from conan.tools.build import check_max_cppstd, check_min_cppstd
 from conan.tools.files import copy
+from conan.tools.scm import Git
 
 
 class LogfaultConan(ConanFile):
     name = "logfault"
-    version = "0.5.0"
+    version = "0.5.1"
     settings = "os", "arch", "compiler", "build_type"
     exports_sources = "include/*", "tests/*", "CMakeLists.txt"
     no_copy_source = True
@@ -23,7 +24,8 @@ class LogfaultConan(ConanFile):
         self.cpp_info.libdirs = []
 
     def requirements(self):
-        self.test_requires("gtest/1.14.0")
+        if not self.conf.get("tools.build:skip_test", default=False):
+            self.test_requires("gtest/1.14.0")
 
     def validate(self):
         check_min_cppstd(self, 14)
@@ -40,6 +42,7 @@ class LogfaultConan(ConanFile):
 
     def package(self):
         # This will also copy the "include" folder
+        copy(self, "LICENSE", self.source_folder, self.package_folder)
         copy(self, "*.h", self.source_folder, self.package_folder)
 
     def package_info(self):
