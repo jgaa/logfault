@@ -7,17 +7,11 @@ from conan.tools.scm import Git
 
 class LogfaultConan(ConanFile):
     name = "logfault"
-    version = "0.5.0"
+    version = "0.5.1"
     settings = "os", "arch", "compiler", "build_type"
     exports_sources = "include/*", "tests/*", "CMakeLists.txt"
     no_copy_source = True
     generators = "CMakeToolchain", "CMakeDeps"
-    options = {"with_tests": [True, False]}
-    default_options = {"with_tests": False}
-
-    # def source(self):
-    #     git = Git(self)
-    #     git.clone(url="https://github.com/conan-io/libhello.git", target=".")
 
     def package(self):
         # This will also copy the "include" folder

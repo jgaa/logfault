@@ -1,36 +1,4 @@
-
-
-message ("GTEST_LIBRARIES: ${GTEST_LIBRARIES}")
-message ("GTest_LIBRARIES: ${GTest_LIBRARIES}")
-
-message ("GTEST_INCLUDE_DIRS: ${GTEST_INCLUDE_DIRS}")
-message ("GTest_INCLUDE_DIRS: ${GTest_INCLUDE_DIRS}")
-
-if (NOT GTEST_LIBRARIES)
-    set (GTEST_LIBRARIES ${GTest_LIBRARIES})
-endif()
-
-if (NOT GTEST_INCLUDE_DIRS)
-    set (GTEST_INCLUDE_DIRS ${GTest_INCLUDE_DIRS})
-endif()
-
-option(WITH_QT "Enable QT" OFF)
-
-# if (WITH_QT)
-#     add_definitions(-DLOGFAULT_USE_QT_LOG=1)
-#     find_package(Qt6 6.4 REQUIRED COMPONENTS Test)
-#     qt_standard_project_setup(REQUIRES 6.5)
-#     qt_add_executable(general_tests general_tests.cpp)
-
-# else()
-#     add_executable(general_tests general_tests.cpp)
-#     target_link_libraries(general_tests
-#         ${DEFAULT_LIBRARIES}
-#     )
-# endif()
-
 ####### default_to_clog
-
 
 add_executable(default_to_clog
     default_to_clog.cpp
@@ -43,12 +11,11 @@ target_include_directories(default_to_clog
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LOGFAULT_ROOT}/include
     ${GTEST_INCLUDE_DIRS}
-    #${GTest_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/exports
     )
 
 target_link_libraries(default_to_clog
-    ${GTEST_LIBRARIES}
+    GTest::gtest
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
@@ -69,12 +36,11 @@ target_include_directories(default_to_clog_with_tid
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LOGFAULT_ROOT}/include
     ${GTEST_INCLUDE_DIRS}
-    #${GTest_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/exports
     )
 
 target_link_libraries(default_to_clog_with_tid
-    ${GTEST_LIBRARIES}
+    GTest::gtest
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
