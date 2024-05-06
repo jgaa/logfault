@@ -7,7 +7,7 @@ from conan.tools.scm import Git
 
 class LogfaultConan(ConanFile):
     name = "logfault"
-    version = "0.5.1"
+    version = "0.5.2"
     settings = "os", "arch", "compiler", "build_type"
     exports_sources = "include/*", "tests/*", "CMakeLists.txt"
     no_copy_source = True
