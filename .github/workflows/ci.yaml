@@ -19,16 +19,16 @@ jobs:
           - os: windows-latest
             compiler: msvc
           - os: macos-latest
-            compiler: clang
+            compiler:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: true
 
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/vcpkg
@@ -51,6 +51,11 @@ jobs:
           ninja: true
           vcpkg: true
           cppcheck: false
+
+      - name: Install compiler for Macos
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install llvm
 
       - name: Prepare the PATH
         run: |

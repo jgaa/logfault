@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 project(logfault
     DESCRIPTION "Simple to use, header only C++ library for application-logging on all major platforms."
     HOMEPAGE_URL https://github.com/jgaa/logfault
-    VERSION 0.5.1
+    VERSION 0.5.2
     LANGUAGES CXX)
 
 include(GNUInstallDirs)
@@ -12,16 +12,9 @@ set(LOGFAULT_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 message(STATUS "Using ${CMAKE_CXX_COMPILER}")
 
-macro(SET_CPP_STANDARD target)
-    message(STATUS "Using C++ 11 for ${target}")
-    set_property(TARGET ${target} PROPERTY CXX_STANDARD 11)
-endmacro(SET_CPP_STANDARD)
-
 find_package (Threads)
 set(DEFAULT_LIBRARIES  ${CMAKE_THREAD_LIBS_INIT})
-include_directories(
-    ${PROJECT_SOURCE_DIR}/include
-    )
+include_directories(${PROJECT_SOURCE_DIR}/include)
 
 option(LOGFAULT_BUILD_TESTS "Build tests" ON)
 
