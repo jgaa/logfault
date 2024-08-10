@@ -236,7 +236,7 @@ namespace logfault {
     class StreamHandler : public Handler {
     public:
         StreamHandler(std::ostream& out, LogLevel level) : Handler(level), out_{out} {}
-        StreamHandler(std::string& path, LogLevel level, const bool truncate = false) : Handler(level)
+        StreamHandler(const std::string& path, LogLevel level, const bool truncate = false) : Handler(level)
         , file_{new std::ofstream{path, truncate ? std::ios::trunc : std::ios::app}}, out_{*file_} {}
 
         void LogMessage(const Message& msg) override {
@@ -292,8 +292,8 @@ namespace logfault {
         : Handler(level), name_{name} {}
 
         void LogMessage(const logfault::Message& msg) override {
-            static const std::array<int, 6> android_priority =
-                { ANDROID_LOG_ERROR, ANDROID_LOG_WARN, ANDROID_LOG_INFO,
+            static const std::array<int, 7> android_priority =
+                { ANDROID_LOG_SILENT, ANDROID_LOG_ERROR, ANDROID_LOG_WARN, ANDROID_LOG_INFO,
                   ANDROID_LOG_INFO, ANDROID_LOG_DEBUG, ANDROID_LOG_VERBOSE };
             __android_log_write(android_priority.at(static_cast<int>(level_)),
                                 name_.c_str(), msg.msg_.c_str());

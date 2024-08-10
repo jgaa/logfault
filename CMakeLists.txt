@@ -16,7 +16,7 @@ find_package (Threads)
 set(DEFAULT_LIBRARIES  ${CMAKE_THREAD_LIBS_INIT})
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
-option(LOGFAULT_BUILD_TESTS "Build tests" ON)
+option(LOGFAULT_BUILD_TESTS "Build tests" OFF)
 
 if(LOGFAULT_BUILD_TESTS)
     find_package(GTest REQUIRED)
