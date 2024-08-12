@@ -33,6 +33,12 @@ class LogfaultConan(ConanFile):
     def layout(self):
         cmake_layout(self)
 
+    def generate(self):
+        tc = CMakeToolchain(self)
+        if not self.conf.get("tools.build:skip_test", default=False):
+            tc.variables["LOGFAULT_BUILD_TESTS"] = "ON"
+        tc.generate()
+
     def build(self):
         if not self.conf.get("tools.build:skip_test", default=False):
             cmake = CMake(self)
