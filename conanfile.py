@@ -11,7 +11,7 @@ class LogfaultConan(ConanFile):
     settings = "os", "arch", "compiler", "build_type"
     exports_sources = "include/*", "tests/*", "CMakeLists.txt"
     no_copy_source = True
-    generators = "CMakeToolchain", "CMakeDeps"
+    generators = "CMakeDeps"
 
     def package(self):
         # This will also copy the "include" folder
