@@ -1,10 +1,16 @@
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 
-project(logfault
-    DESCRIPTION "Simple to use, header only C++ library for application-logging on all major platforms."
-    HOMEPAGE_URL https://github.com/jgaa/logfault
-    VERSION 0.5.2
-    LANGUAGES CXX)
+set (LOGFAULT_VERSION 0.5.3)
+
+if(CMAKE_VERSION VERSION_LESS "3.12")
+    project(logfault VERSION ${LOGFAULT_VERSION} LANGUAGES CXX)
+else()
+    project(logfault
+        DESCRIPTION "Simple to use, header only C++ library for application-logging on all major platforms."
+        HOMEPAGE_URL https://github.com/jgaa/logfault
+        VERSION ${LOGFAULT_VERSION}
+        LANGUAGES CXX)
+endif()
 
 include(GNUInstallDirs)
 
