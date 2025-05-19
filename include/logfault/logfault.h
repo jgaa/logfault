@@ -41,8 +41,6 @@ Home: https://github.com/jgaa/logfault
 #include <string>
 #include <thread>
 #include <vector>
-#include <type_traits>
-#include <cstdint>
 
 #if __cplusplus >= 202002L
 #   include <string_view>
@@ -223,7 +221,7 @@ namespace logfault {
 
     struct Message {
         Message(const std::string && msg, const LogLevel level, const char *file = nullptr, const int line = 0, const char *func = nullptr)
-        : msg_{std::move(msg)}, level_{level} {}
+            : msg_{std::move(msg)}, level_{level}, file_{file}, line_{line}, func_{func} {}
 
         const std::string msg_;
         const std::chrono::system_clock::time_point when_ = std::chrono::system_clock::now();
