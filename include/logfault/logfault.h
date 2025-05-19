@@ -244,7 +244,7 @@ namespace logfault {
 // check if c++20 or later
 #if __cplusplus >= 202002L
         static std::string_view LevelName(const LogLevel level) {
-            static constexpr std::array<std::string, 7> names =
+            static constexpr std::array<std::string_view, 7> names =
                 {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUGGING", "TRACE"}};
             return names.at(static_cast<size_t>(level));
         }
