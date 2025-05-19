@@ -405,7 +405,6 @@ namespace logfault {
             if (fields_ & (1 << Fields::MSG)) {
                 add("log", {});
                 JsonEscape(msg.msg_, out_);
-                out_ << msg.msg_ << '"';
             }
 
             out_ << "}\n";
