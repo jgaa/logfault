@@ -195,6 +195,7 @@ namespace logfault {
         // Lookup table for hex digits
         static constexpr char hex[] = "0123456789ABCDEF";
 
+        // TODO: Use a static lookup table in stead of many tests
         for (char c : msg) {
             unsigned char uc = static_cast<unsigned char>(c);
             switch (c) {
@@ -206,7 +207,7 @@ namespace logfault {
             case '\r': out.put('\\'); out.put('r');  break;
             case '\t': out.put('\\'); out.put('t');  break;
             default:
-                if (uc < 0x20) {
+                if (uc < 0x20) [[unlikely]] {
                     // control characters as \u00XX
                     out.put('\\'); out.put('u');
                     out.put('0');  out.put('0');
@@ -372,6 +373,8 @@ namespace logfault {
                 }
             };
 
+            out_ << '{';
+
             if (fields_ & (1 << Fields::TIME)) {
                 add("time", {});
                 PrintTime(out_, msg);
@@ -379,7 +382,8 @@ namespace logfault {
             }
 
             if (fields_ & (1 << Fields::LEVEL)) {
-                add("level", LevelName(msg.level_));
+                add("level", {});
+                out_ << LevelName(msg.level_) << '"';
             }
 
             if (fields_ & (1 << Fields::THREAD)) {
@@ -387,24 +391,26 @@ namespace logfault {
                 out_ << LOGFAULT_THREAD_NAME << '"';
             }
 
-            if (fields_ & (1 << Fields::FILE)) {
+            if (fields_ & (1 << Fields::FILE) && msg.file_) {
                 add("file", ShortenPath(msg.file_));
             }
 
-            if (fields_ & (1 << Fields::LINE)) {
+            if (fields_ & (1 << Fields::LINE) && msg.line_) {
                 add("line", {});
                 out_ << msg.line_ << '"';
             }
 
-            if (fields_ & (1 << Fields::FUNC)) {
+            if (fields_ & (1 << Fields::FUNC) && msg.func_) {
                 add("func", msg.func_);
             }
 
             if (fields_ & (1 << Fields::MSG)) {
-                add("msg", {});
+                add("log", {});
                 JsonEscape(msg.msg_, out_);
                 out_ << msg.msg_ << '"';
             }
+
+            out_ << "}\n";
         }
 
     private:
