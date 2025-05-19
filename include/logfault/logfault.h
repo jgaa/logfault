@@ -41,6 +41,12 @@ Home: https://github.com/jgaa/logfault
 #include <string>
 #include <thread>
 #include <vector>
+#include <type_traits>
+#include <cstdint>
+
+#if __cplusplus >= 202002L
+#   include <string_view>
+#endif
 
 #ifndef LOGFAULT_USE_UTCZONE
 #   define LOGFAULT_USE_UTCZONE 0
@@ -88,6 +94,10 @@ Home: https://github.com/jgaa/logfault
 #   endif
 #endif
 
+#ifndef LOGFAULT_LOCATION_LEVELS
+#   define LOGFAULT_LOCATION_LEVELS 3
+#endif
+
 // Internal implementation detail
 #define LOGFAULT_LOG__(level) \
     ::logfault::LogManager::Instance().IsRelevant(level) && \
@@ -99,6 +109,26 @@ Home: https://github.com/jgaa/logfault
 #define LFLOG_INFO LOGFAULT_LOG__(logfault::LogLevel::INFO)
 #define LFLOG_DEBUG LOGFAULT_LOG__(logfault::LogLevel::DEBUGGING)
 #define LFLOG_TRACE LOGFAULT_LOG__(logfault::LogLevel::TRACE)
+
+#if defined(__clang__) || defined(__GNUC__)
+#  define LOGFAULT_FUNC_NAME  __PRETTY_FUNCTION__
+#elif defined(_MSC_VER)
+#  define LOGFAULT_FUNC_NAME  __FUNCSIG__
+#else
+#  define LOGFAULT_FUNC_NAME  __func__
+#endif
+
+
+// Internal implementation detail
+#define LOGFAULT_LOG_EX__(level) \
+::logfault::LogManager::Instance().IsRelevant(level) && ::logfault::Log(level, __FILE__, __LINE__, LOGFAULT_FUNC_NAME).Line()
+
+#define LFLOG_ERROR_EX LOGFAULT_LOG_EX__(logfault::LogLevel::ERROR)
+#define LFLOG_WARN_EX LOGFAULT_LOG_EX__(logfault::LogLevel::WARN)
+#define LFLOG_NOTICE_EX LOGFAULT_LOG_EX__(logfault::LogLevel::NOTICE)
+#define LFLOG_INFO_EX LOGFAULT_LOG_EX__(logfault::LogLevel::INFO)
+#define LFLOG_DEBUG_EX LOGFAULT_LOG_EX__(logfault::LogLevel::DEBUGGING)
+#define LFLOG_TRACE_EX LOGFAULT_LOG_EX__(logfault::LogLevel::TRACE)
 
 #ifdef LOGFAULT_ENABLE_ALL
 #   define LFLOG_IFALL_ERROR(msg) LFLOG_ERROR << msg
@@ -153,13 +183,54 @@ namespace logfault {
 
     enum class LogLevel { DISABLED, ERROR, WARN, NOTICE, INFO, DEBUGGING, TRACE };
 
+    template<typename T>
+    std::string ThreadNameToString(T tid) {
+        std::ostringstream out;
+        out << tid;
+        return out.str();
+    }
+
+    template <typename T>
+    void JsonEscape(const T& msg, std::ostream& out) {
+        // Lookup table for hex digits
+        static constexpr char hex[] = "0123456789ABCDEF";
+
+        for (char c : msg) {
+            unsigned char uc = static_cast<unsigned char>(c);
+            switch (c) {
+            case '\"': out.put('\\'); out.put('\"'); break;
+            case '\\': out.put('\\'); out.put('\\'); break;
+            case '\b': out.put('\\'); out.put('b');  break;
+            case '\f': out.put('\\'); out.put('f');  break;
+            case '\n': out.put('\\'); out.put('n');  break;
+            case '\r': out.put('\\'); out.put('r');  break;
+            case '\t': out.put('\\'); out.put('t');  break;
+            default:
+                if (uc < 0x20) {
+                    // control characters as \u00XX
+                    out.put('\\'); out.put('u');
+                    out.put('0');  out.put('0');
+                    out.put(hex[(uc >> 4) & 0xF]);
+                    out.put(hex[ uc       & 0xF]);
+                } else {
+                    // regular printable character
+                    out.put(c);
+                }
+            }
+        }
+    }
+
     struct Message {
-        Message(const std::string && msg, const LogLevel level)
+        Message(const std::string && msg, const LogLevel level, const char *file = nullptr, const int line = 0, const char *func = nullptr)
         : msg_{std::move(msg)}, level_{level} {}
 
         const std::string msg_;
         const std::chrono::system_clock::time_point when_ = std::chrono::system_clock::now();
         const LogLevel level_;
+        const char *file_{};
+        const int line_{};
+        const char *func_{};
+        const std::string thread_{ThreadNameToString(LOGFAULT_THREAD_NAME)};
     };
 
     class Handler {
@@ -171,13 +242,22 @@ namespace logfault {
         virtual void LogMessage(const Message& msg) = 0;
         const LogLevel level_;
 
-        static const std::string& LevelName(const LogLevel level) {
-            static const std::array<std::string, 7> names =
+// check if c++20 or later
+#if __cplusplus >= 202002L
+        static std::string_view LevelName(const LogLevel level) {
+            static constexpr std::array<std::string, 7> names =
                 {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUGGING", "TRACE"}};
             return names.at(static_cast<size_t>(level));
         }
+#else
+        static const char * LevelName(const LogLevel level) {
+            static const std::array<const char *, 7> names =
+                {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUGGING", "TRACE"}};
+            return names.at(static_cast<size_t>(level));
+        }
+#endif
 
-        void PrintMessage(std::ostream& out, const logfault::Message& msg) {
+        void PrintTime(std::ostream& out, const logfault::Message& msg) {
             auto tt = std::chrono::system_clock::to_time_t(msg.when_);
             auto when_rounded = std::chrono::system_clock::from_time_t(tt);
             if (when_rounded > msg.when_) {
@@ -198,17 +278,26 @@ namespace logfault {
                     << std::put_time(tm, " %Z")
 #   endif
 #endif
-                    ;
+                ;
             } else {
                 out << "0000-00-00 00:00:00.000";
             }
 
-            out << ' ' << LevelName(msg.level_)
-                << ' ' << LOGFAULT_THREAD_NAME
-                << ' ' << msg.msg_;
         }
 
-#if defined(LOGFAULT_ENABLE_LOCATION) && LOGFAULT_ENABLE_LOCATION
+        void PrintMessage(std::ostream& out, const logfault::Message& msg) {
+            PrintTime(out, msg);
+
+            out << ' ' << LevelName(msg.level_)
+                << ' ' << LOGFAULT_THREAD_NAME;
+
+            if (msg.func_) {
+                out << " {" << msg.func_ << '}';
+            }
+
+            out  << ' ' << msg.msg_;
+        }
+
         static const char *ShortenPath(const char *path) {
             assert(path);
             if (LOGFAULT_LOCATION_LEVELS <= 0) {
@@ -229,7 +318,6 @@ namespace logfault {
             }
             return seperators.empty() ? path : seperators.front();
         }
-#endif
 
     };
 
@@ -247,6 +335,82 @@ namespace logfault {
     private:
         std::unique_ptr<std::ostream> file_;
         std::ostream& out_;
+    };
+
+    class JsonHandler : public Handler {
+    public:
+        enum Fields {
+            TIME, LEVEL, THREAD, FILE, LINE, FUNC, MSG
+        };
+
+        static constexpr int default_fields = 1 << Fields::TIME
+                                              | 1 << Fields::LEVEL
+                                              | 1 << Fields::THREAD
+                                              | 1 << Fields::FUNC
+                                              | 1 << Fields::MSG;
+
+        JsonHandler(std::ostream& out, LogLevel level, int fields = default_fields)
+            : Handler(level), out_{out}, fields_{fields} {}
+
+        JsonHandler(const std::string& path, LogLevel level, int fields = default_fields, const bool truncate = false)
+            : Handler(level)
+            , file_{new std::ofstream{path, truncate ? std::ios::trunc : std::ios::app}}
+            , out_{*file_}, fields_{fields} {}
+
+        void LogMessage(const Message& msg) override {
+            bool first = true;
+            auto add = [&](const char *name, const char *value) {
+                if (first) [[unlikely]] {
+                    first = false;
+                } else {
+                    out_ << ',';
+                }
+                out_ << '"' << name << "\":\"";
+
+                if (value) {
+                    out_ << value << '"';
+                }
+            };
+
+            if (fields_ & (1 << Fields::TIME)) {
+                add("time", {});
+                PrintTime(out_, msg);
+                out_ << '"';
+            }
+
+            if (fields_ & (1 << Fields::LEVEL)) {
+                add("level", LevelName(msg.level_));
+            }
+
+            if (fields_ & (1 << Fields::THREAD)) {
+                add("thread", {});
+                out_ << LOGFAULT_THREAD_NAME << '"';
+            }
+
+            if (fields_ & (1 << Fields::FILE)) {
+                add("file", ShortenPath(msg.file_));
+            }
+
+            if (fields_ & (1 << Fields::LINE)) {
+                add("line", {});
+                out_ << msg.line_ << '"';
+            }
+
+            if (fields_ & (1 << Fields::FUNC)) {
+                add("func", msg.func_);
+            }
+
+            if (fields_ & (1 << Fields::MSG)) {
+                add("msg", {});
+                JsonEscape(msg.msg_, out_);
+                out_ << msg.msg_ << '"';
+            }
+        }
+
+    private:
+        std::unique_ptr<std::ostream> file_;
+        std::ostream& out_;
+        const int fields_{};
     };
 
     class ProxyHandler : public Handler {
@@ -461,8 +625,10 @@ namespace logfault {
     class Log {
     public:
         Log(const LogLevel level) : level_{level} {}
+        Log(const LogLevel level, const char *file, const int line, const char *func)
+            : level_{level}, file_{file}, line_{line}, func_{func} {}
         ~Log() {
-            Message message(out_.str(), level_);
+            Message message(out_.str(), level_, file_, line_, func_);
             LogManager::Instance().LogMessage(message);
         }
 
@@ -470,6 +636,9 @@ namespace logfault {
 
 private:
         const LogLevel level_;
+        const char *file_{};
+        const int line_{};
+        const char *func_{};
         std::ostringstream out_;
     };
 
