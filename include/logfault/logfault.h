@@ -194,8 +194,12 @@ namespace logfault {
         static constexpr char hex[] = "0123456789ABCDEF";
 
         // TODO: Use a static lookup table in stead of many tests
-        for (char c : msg) {
+        for (const char c : msg) {
             unsigned char uc = static_cast<unsigned char>(c);
+            if (c > '"' && c != '\\') [[likely]] {
+                out.put(c);
+                continue;
+            }
             switch (c) {
             case '\"': out.put('\\'); out.put('\"'); break;
             case '\\': out.put('\\'); out.put('\\'); break;
@@ -405,6 +409,7 @@ namespace logfault {
             if (fields_ & (1 << Fields::MSG)) {
                 add("log", {});
                 JsonEscape(msg.msg_, out_);
+                out_ << '"';
             }
 
             out_ << "}\n";
