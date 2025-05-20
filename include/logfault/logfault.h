@@ -384,7 +384,7 @@ namespace logfault {
             }
 
             if (fields_ & (1 << Fields::LEVEL)) {
-                add("level", {});
+                add("severity", {});
                 out_ << LevelName(msg.level_) << '"';
             }
 
