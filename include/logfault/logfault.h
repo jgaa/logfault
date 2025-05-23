@@ -346,6 +346,8 @@ namespace logfault {
             TIME, LEVEL, THREAD, FILE, LINE, FUNC, MSG
         };
 
+        // trace, debug, info, warn, error, fatal
+
         static constexpr int default_fields = 1 << Fields::TIME
                                               | 1 << Fields::LEVEL
                                               | 1 << Fields::THREAD
@@ -361,6 +363,15 @@ namespace logfault {
             , out_{*file_}, fields_{fields} {}
 
         void LogMessage(const Message& msg) override {
+        // Use severity level names recognized by Grafana
+#if __cplusplus >= 202002l
+            static constexpr std::array<std::string_view, 7> names =
+#else
+            static const std::array<const char *, 7> names =
+#endif
+            {{"disabled", "error", "warn", "info", "info", "debug", "trace"}};
+
+
             bool first = true;
             auto add = [&](const char *name, const char *value) {
                 if (first) [[unlikely]] {
@@ -384,8 +395,9 @@ namespace logfault {
             }
 
             if (fields_ & (1 << Fields::LEVEL)) {
-                add("severity", {});
-                out_ << LevelName(msg.level_) << '"';
+                add("level", {});
+                assert(static_cast<unsigned int>(msg.level_) < names.size() && "LogLevel out of range");
+                out_ << names[static_cast<unsigned int>(msg.level_)] << '"';
             }
 
             if (fields_ & (1 << Fields::THREAD)) {
@@ -394,11 +406,11 @@ namespace logfault {
             }
 
             if (fields_ & (1 << Fields::FILE) && msg.file_) {
-                add("file", ShortenPath(msg.file_));
+                add("src_file", ShortenPath(msg.file_));
             }
 
             if (fields_ & (1 << Fields::LINE) && msg.line_) {
-                add("line", {});
+                add("src_line", {});
                 out_ << msg.line_ << '"';
             }
 
