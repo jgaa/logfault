@@ -98,6 +98,7 @@ Home: https://github.com/jgaa/logfault
 
 // Internal implementation detail
 #define LOGFAULT_LOG__(level) \
+    ::logfault::validLevel(level) && \
     ::logfault::LogManager::Instance().IsRelevant(level) && \
     ::logfault::Log(level).Line() LOGFAULT_LOCATION__
 
@@ -118,7 +119,9 @@ Home: https://github.com/jgaa/logfault
 
 #if __cplusplus >= 202002L
 #define LOGFAULT_LOG_EX__(level, ...) \
-   ::logfault::LogManager::Instance().IsRelevant(level) && ::logfault::Log(level, __FILE__, __LINE__, LOGFAULT_FUNC_NAME __VA_OPT__(, __VA_ARGS__)  ).Line()
+    ::logfault::validLevel(level) && \
+    ::logfault::LogManager::Instance().IsRelevant(level) && \
+    ::logfault::Log(level, __FILE__, __LINE__, LOGFAULT_FUNC_NAME __VA_OPT__(, __VA_ARGS__)  ).Line()
 
 // Signature for the toLog function
 // std::pair<bool /* json */, std::string /* content or json */>(const auto& data, bool /*want json*/)
@@ -133,9 +136,10 @@ toLog(const T& data, const bool want_json = false) {
 }
 
 #else
-// Internal implementation detail
 #define LOGFAULT_LOG_EX__(level) \
-    ::logfault::LogManager::Instance().IsRelevant(level) && ::logfault::Log(level, __FILE__, __LINE__, LOGFAULT_FUNC_NAME).Line()
+    ::logfault::validLevel(level) && \
+    ::logfault::LogManager::Instance().IsRelevant(level) && \
+    ::logfault::Log(level, __FILE__, __LINE__, LOGFAULT_FUNC_NAME).Line()
 #endif
 
 
@@ -198,6 +202,16 @@ toLog(const T& data, const bool want_json = false) {
 namespace logfault {
 
     enum class LogLevel { DISABLED, ERROR, WARN, NOTICE, INFO, DEBUGGING, TRACE };
+
+    // Allows us to optimize log statements below a treashold away from the compiled code.
+    // Good for release builds to for example totally remove trace messages.
+    constexpr bool validLevel(LogLevel level) {
+#if defined(LOGFAULT_MIN_LOG_LEVEL)
+        return level != LogLevel::DISABLED && level <= LogLevel::LOGFAULT_MIN_LOG_LEVEL;
+#else
+        return level != LogLevel::DISABLED;
+#endif
+    }
 
     template<typename T>
     std::string ThreadNameToString(T tid) {
