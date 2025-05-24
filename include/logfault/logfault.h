@@ -116,10 +116,28 @@ Home: https://github.com/jgaa/logfault
 #  define LOGFAULT_FUNC_NAME  __func__
 #endif
 
+#if __cplusplus >= 202002L
+#define LOGFAULT_LOG_EX__(level, ...) \
+   ::logfault::LogManager::Instance().IsRelevant(level) && ::logfault::Log(level, __FILE__, __LINE__, LOGFAULT_FUNC_NAME __VA_OPT__(, __VA_ARGS__)  ).Line()
 
+// Signature for the toLog function
+// std::pair<bool /* json */, std::string /* content or json */>(const auto& data, bool /*want json*/)
+template <typename T>
+std::pair<bool /* json */, std::string /* content or json */>
+toLog(const T& data, const bool want_json = false) {
+    if constexpr (std::is_same_v<T, std::string_view> || std::is_same_v<T, std::string>) {
+        return {false, data};
+    } else if constexpr (!std::is_same_v<T, std::string_view> && !std::is_same_v<T, std::string>) {
+        return {false, std::to_string(data)};
+    }
+}
+
+#else
 // Internal implementation detail
 #define LOGFAULT_LOG_EX__(level) \
-::logfault::LogManager::Instance().IsRelevant(level) && ::logfault::Log(level, __FILE__, __LINE__, LOGFAULT_FUNC_NAME).Line()
+    ::logfault::LogManager::Instance().IsRelevant(level) && ::logfault::Log(level, __FILE__, __LINE__, LOGFAULT_FUNC_NAME).Line()
+#endif
+
 
 #define LFLOG_ERROR_EX LOGFAULT_LOG_EX__(logfault::LogLevel::ERROR)
 #define LFLOG_WARN_EX LOGFAULT_LOG_EX__(logfault::LogLevel::WARN)
@@ -188,6 +206,11 @@ namespace logfault {
         return out.str();
     }
 
+    struct Extra {
+        std::string content;
+        std::string json;
+    };
+
     template <typename T>
     void JsonEscape(const T& msg, std::ostream& out) {
         // Lookup table for hex digits
@@ -224,8 +247,10 @@ namespace logfault {
     }
 
     struct Message {
-        Message(const std::string && msg, const LogLevel level, const char *file = nullptr, const int line = 0, const char *func = nullptr)
-            : msg_{std::move(msg)}, level_{level}, file_{file}, line_{line}, func_{func} {}
+        using extras_t = std::function<Extra(bool wantJson)>;
+        Message(const std::string && msg, const LogLevel level, const char *file = nullptr
+                , const int line = 0, const char *func = nullptr, const extras_t& log_fn = nullptr)
+            : msg_{std::move(msg)}, level_{level}, file_{file}, line_{line}, func_{func}, log_fn_{log_fn} {}
 
         const std::string msg_;
         const std::chrono::system_clock::time_point when_ = std::chrono::system_clock::now();
@@ -233,6 +258,7 @@ namespace logfault {
         const char *file_{};
         const int line_{};
         const char *func_{};
+        const extras_t& log_fn_ {};
         const std::string thread_{ThreadNameToString(LOGFAULT_THREAD_NAME)};
     };
 
@@ -298,6 +324,11 @@ namespace logfault {
                 out << " {" << msg.func_ << '}';
             }
 
+            if (msg.log_fn_) {
+                Extra extra = msg.log_fn_(false);
+                out << ' ' << extra.content;
+            }
+
             out  << ' ' << msg.msg_;
         }
 
@@ -328,7 +359,7 @@ namespace logfault {
     public:
         StreamHandler(std::ostream& out, LogLevel level) : Handler(level), out_{out} {}
         StreamHandler(const std::string& path, LogLevel level, const bool truncate = false) : Handler(level)
-        , file_{new std::ofstream{path, truncate ? std::ios::trunc : std::ios::app}}, out_{*file_} {}
+        , file_{new std::ofstream{path, std::ios::out | (truncate ? std::ios::trunc : std::ios::app)}}, out_{*file_} {}
 
         void LogMessage(const Message& msg) override {
             PrintMessage(out_, msg);
@@ -359,8 +390,12 @@ namespace logfault {
 
         JsonHandler(const std::string& path, LogLevel level, int fields = default_fields, const bool truncate = false)
             : Handler(level)
-            , file_{new std::ofstream{path, truncate ? std::ios::trunc : std::ios::app}}
-            , out_{*file_}, fields_{fields} {}
+            , file_{new std::ofstream{path, std::ios::out | (truncate ? std::ios::trunc : std::ios::app)}}
+            , out_{*file_}, fields_{fields} {
+            if (!file_->is_open()) {
+                throw std::runtime_error{"Failed to open file: " + path};
+            }
+        }
 
         void LogMessage(const Message& msg) override {
         // Use severity level names recognized by Grafana
@@ -371,6 +406,11 @@ namespace logfault {
 #endif
             {{"disabled", "error", "warn", "info", "info", "debug", "trace"}};
 
+            std::optional<Extra> extra;
+
+            if (msg.log_fn_) {
+                extra = msg.log_fn_(true);
+            }
 
             bool first = true;
             auto add = [&](const char *name, const char *value) {
@@ -384,6 +424,15 @@ namespace logfault {
                 if (value) {
                     out_ << value << '"';
                 }
+            };
+
+            auto add_json = [&](const auto json) {
+                if (first) [[unlikely]] {
+                    first = false;
+                } else {
+                    out_ << ',';
+                }
+                out_ << json;
             };
 
             out_ << '{';
@@ -418,17 +467,24 @@ namespace logfault {
                 add("func", msg.func_);
             }
 
+            if (extra && !extra->json.empty()) {
+                add_json(extra->json);
+            }
+
             if (fields_ & (1 << Fields::MSG)) {
                 add("log", {});
                 JsonEscape(msg.msg_, out_);
+                if (extra && !extra->content.empty()) {
+                    out_ << ' ' << extra->content;
+                }
                 out_ << '"';
             }
 
-            out_ << "}\n";
+            out_ << '}' << std::endl;
         }
 
     private:
-        std::unique_ptr<std::ostream> file_;
+        std::unique_ptr<std::ofstream> file_;
         std::ostream& out_;
         const int fields_{};
     };
@@ -642,9 +698,60 @@ namespace logfault {
         LogLevel level_ = LogLevel::ERROR;
     };
 
+#if __cplusplus >= 202002L
+    template <typename... Args>
     class Log {
+        std::tuple<Args ...> args_;
     public:
-        Log(const LogLevel level) : level_{level} {}
+        Log(const LogLevel level, const char *file, const int line, const char *func, Args&&... args)
+            : args_{std::forward<Args>(args)...}, level_{level}, file_{file}, line_{line}, func_{func} {}
+
+        ~Log() {
+            if constexpr (sizeof...(Args) == 0) {
+                LogManager::Instance().LogMessage({out_.str(), level_, file_, line_, func_});
+                return;
+            }
+
+            constexpr std::size_t num_args = sizeof...(Args);
+
+            if constexpr (num_args ==  0) {
+                LogManager::Instance().LogMessage({out_.str(), level_, file_, line_, func_});
+                return;
+            } else {
+                auto log_fn = [&](bool wantJson) -> Extra {
+                    std::array<std::string, num_args> strings;
+                    std::array<bool, num_args> is_json{};
+                    std::ostringstream extra_json;
+                    std::ostringstream extra_content;
+                    bool has_extra_json = false;
+                    std::apply([&](auto&&... args) {
+                        int n = 0;
+                        (((std::tie(is_json[n], strings[n]) = toLog(args, wantJson)), ++n), ...);
+                    }, args_);
+
+
+                    for(auto i = 0u; i < num_args; ++i) {
+                        if (is_json[i]) {
+                            if (has_extra_json) {
+                                extra_json << ',';
+                            } else {
+                                has_extra_json = true;
+                            }
+                            extra_json << strings[i];
+                        } else {
+                            extra_content << ' ' << strings[i];
+                        }
+                    }
+
+                    return {extra_content.str(), extra_json.str()};
+                };
+
+                LogManager::Instance().LogMessage({out_.str(), level_, file_, line_, func_, log_fn});
+            }
+        }
+#else
+    class Log {
+        public:
         Log(const LogLevel level, const char *file, const int line, const char *func)
             : level_{level}, file_{file}, line_{line}, func_{func} {}
         ~Log() {
@@ -652,6 +759,8 @@ namespace logfault {
             LogManager::Instance().LogMessage(message);
         }
 
+#endif
+        Log(const LogLevel level) : level_{level} {}
         std::ostringstream& Line() { return out_; }
 
 private:
@@ -661,6 +770,16 @@ private:
         const char *func_{};
         std::ostringstream out_;
     };
+
+#if __cplusplus >= 202002L
+    template<typename... U>
+    Log(LogLevel       /*level*/,
+        const char*    /*file*/,
+        int            /*line*/,
+        const char*    /*func*/,
+        U&&...         /*args*/)
+        -> Log<U...>;
+#endif
 
 } // namespace
 
