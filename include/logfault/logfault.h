@@ -549,8 +549,12 @@ namespace logfault {
             static const std::array<int, 7> android_priority =
                 { ANDROID_LOG_SILENT, ANDROID_LOG_ERROR, ANDROID_LOG_WARN, ANDROID_LOG_INFO,
                   ANDROID_LOG_INFO, ANDROID_LOG_DEBUG, ANDROID_LOG_VERBOSE };
+
+            std::ostringstream out;
+            PrintMessage(out, msg);
+            const auto out_str = out.str();
             __android_log_write(android_priority.at(static_cast<int>(level_)),
-                                name_.c_str(), msg.msg_.c_str());
+                                name_.c_str(), out_str.c_str());
         }
 
     private:
