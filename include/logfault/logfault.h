@@ -289,13 +289,13 @@ namespace logfault {
 #if __cplusplus >= 202002L
         static std::string_view LevelName(const LogLevel level) {
             static constexpr std::array<std::string_view, 7> names =
-                {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUGGING", "TRACE"}};
+                {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}};
             return names.at(static_cast<size_t>(level));
         }
 #else
         static const char * LevelName(const LogLevel level) {
             static const std::array<const char *, 7> names =
-                {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUGGING", "TRACE"}};
+                {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}};
             return names.at(static_cast<size_t>(level));
         }
 #endif
