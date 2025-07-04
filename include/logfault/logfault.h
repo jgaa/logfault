@@ -3,7 +3,7 @@
 /*
 MIT License
 
-Copyright (c) 2018 - 2021 Jarle Aase
+Copyright (c) 2018 - 2025 Jarle Aase
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -41,6 +41,10 @@ Home: https://github.com/jgaa/logfault
 #include <string>
 #include <thread>
 #include <vector>
+
+#if __cplusplus >= 201703L
+#   include <optional>
+#endif
 
 #if __cplusplus >= 202002L
 #   include <string_view>
@@ -220,10 +224,14 @@ namespace logfault {
         return out.str();
     }
 
+#if __cplusplus >= 201703L
     struct Extra {
         std::string content;
         std::string json;
     };
+#else
+    struct Extra {};
+#endif
 
     template <typename T>
     void JsonEscape(const T& msg, std::ostream& out) {
@@ -261,10 +269,20 @@ namespace logfault {
     }
 
     struct Message {
+#if __cplusplus >= 201703L
         using extras_t = std::function<Extra(bool wantJson)>;
+#endif
         Message(const std::string && msg, const LogLevel level, const char *file = nullptr
-                , const int line = 0, const char *func = nullptr, const extras_t& log_fn = nullptr)
-            : msg_{std::move(msg)}, level_{level}, file_{file}, line_{line}, func_{func}, log_fn_{log_fn} {}
+                , const int line = 0, const char *func = nullptr
+#if __cplusplus >= 201703L
+                , const extras_t& log_fn = nullptr
+#endif
+            )
+            : msg_{std::move(msg)}, level_{level}, file_{file}, line_{line}, func_{func}
+#if __cplusplus >= 201703L
+            , log_fn_{log_fn}
+#endif
+        {}
 
         const std::string msg_;
         const std::chrono::system_clock::time_point when_ = std::chrono::system_clock::now();
@@ -272,7 +290,9 @@ namespace logfault {
         const char *file_{};
         const int line_{};
         const char *func_{};
+#if __cplusplus >= 201703L
         const extras_t& log_fn_ {};
+#endif
         const std::string thread_{ThreadNameToString(LOGFAULT_THREAD_NAME)};
     };
 
@@ -337,11 +357,12 @@ namespace logfault {
             if (msg.func_) {
                 out << " {" << msg.func_ << '}';
             }
-
+#if __cplusplus >= 201703L
             if (msg.log_fn_) {
                 Extra extra = msg.log_fn_(false);
                 out << ' ' << extra.content;
             }
+#endif
 
             out  << ' ' << msg.msg_;
         }
@@ -420,11 +441,13 @@ namespace logfault {
 #endif
             {{"disabled", "error", "warn", "info", "info", "debug", "trace"}};
 
+#if __cplusplus >= 201703L
             std::optional<Extra> extra;
 
             if (msg.log_fn_) {
                 extra = msg.log_fn_(true);
             }
+#endif
 
             bool first = true;
             auto add = [&](const char *name, const char *value) {
@@ -481,16 +504,20 @@ namespace logfault {
                 add("func", msg.func_);
             }
 
+#if __cplusplus >= 201703L
             if (extra && !extra->json.empty()) {
                 add_json(extra->json);
             }
+#endif
 
             if (fields_ & (1 << Fields::MSG)) {
                 add("log", {});
                 JsonEscape(msg.msg_, out_);
+#if __cplusplus >= 201703L
                 if (extra && !extra->content.empty()) {
                     out_ << ' ' << extra->content;
                 }
+#endif
                 out_ << '"';
             }
 

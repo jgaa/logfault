@@ -48,7 +48,7 @@ TEST(Logfault, HelloDebug) {
         LFLOG_DEBUG << "Test log";
     }
 
-    regex pattern{R"(.* DEBUGGING .* Test log.*)"};
+    regex pattern{R"(.* DEBUG .* Test log.*)"};
     EXPECT_TRUE(regex_search(output, pattern));
 }
 
