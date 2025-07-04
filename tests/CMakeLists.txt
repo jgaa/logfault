@@ -7,6 +7,12 @@ else()
     message(FATAL_ERROR "Neither GTest::gtest nor gtest::gtest targets were found")
 endif()
 
+add_subdirectory(cxx11)
+add_subdirectory(cxx14)
+add_subdirectory(cxx17)
+add_subdirectory(cxx20)
+add_subdirectory(cxx23)
+
 ####### default_to_clog
 
 add_executable(default_to_clog

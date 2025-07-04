@@ -42,7 +42,7 @@ Home: https://github.com/jgaa/logfault
 #include <thread>
 #include <vector>
 
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
 #   include <optional>
 #endif
 
@@ -224,7 +224,7 @@ namespace logfault {
         return out.str();
     }
 
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
     struct Extra {
         std::string content;
         std::string json;
@@ -269,17 +269,17 @@ namespace logfault {
     }
 
     struct Message {
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
         using extras_t = std::function<Extra(bool wantJson)>;
 #endif
         Message(const std::string && msg, const LogLevel level, const char *file = nullptr
                 , const int line = 0, const char *func = nullptr
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
                 , const extras_t& log_fn = nullptr
 #endif
             )
             : msg_{std::move(msg)}, level_{level}, file_{file}, line_{line}, func_{func}
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
             , log_fn_{log_fn}
 #endif
         {}
@@ -290,7 +290,7 @@ namespace logfault {
         const char *file_{};
         const int line_{};
         const char *func_{};
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
         const extras_t& log_fn_ {};
 #endif
         const std::string thread_{ThreadNameToString(LOGFAULT_THREAD_NAME)};
@@ -357,7 +357,7 @@ namespace logfault {
             if (msg.func_) {
                 out << " {" << msg.func_ << '}';
             }
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
             if (msg.log_fn_) {
                 Extra extra = msg.log_fn_(false);
                 out << ' ' << extra.content;
@@ -441,7 +441,7 @@ namespace logfault {
 #endif
             {{"disabled", "error", "warn", "info", "info", "debug", "trace"}};
 
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
             std::optional<Extra> extra;
 
             if (msg.log_fn_) {
@@ -504,7 +504,7 @@ namespace logfault {
                 add("func", msg.func_);
             }
 
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
             if (extra && !extra->json.empty()) {
                 add_json(extra->json);
             }
@@ -513,7 +513,7 @@ namespace logfault {
             if (fields_ & (1 << Fields::MSG)) {
                 add("log", {});
                 JsonEscape(msg.msg_, out_);
-#if __cplusplus >= 201703L
+#if __cplusplus >= 202002L
                 if (extra && !extra->content.empty()) {
                     out_ << ' ' << extra->content;
                 }
