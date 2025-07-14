@@ -41,6 +41,7 @@ Home: https://github.com/jgaa/logfault
 #include <string>
 #include <thread>
 #include <vector>
+#include <algorithm>
 
 #if __cplusplus >= 202002L
 #   include <optional>
@@ -298,12 +299,17 @@ namespace logfault {
 
     class Handler {
     public:
-        Handler(LogLevel level = LogLevel::INFO) : level_{level} {}
+        Handler(LogLevel level = LogLevel::INFO)
+            : level_{level} {}
+
+        Handler(std::string name, LogLevel level = LogLevel::INFO)
+            : level_{level}, name_{std::move(name)} {}
         virtual ~Handler() = default;
         using ptr_t = std::unique_ptr<Handler>;
 
         virtual void LogMessage(const Message& msg) = 0;
         const LogLevel level_;
+        const std::string name_;
 
 // check if c++20 or later
 #if __cplusplus >= 202002L
@@ -538,6 +544,11 @@ namespace logfault {
             assert(fn_);
         }
 
+        ProxyHandler(std::string name, const fn_t& fn, LogLevel level)
+            : Handler(std::move(name), level), fn_{fn} {
+            assert(fn_);
+        }
+
         void LogMessage(const logfault::Message& msg) override {
             fn_(msg);
         }
@@ -706,7 +717,7 @@ namespace logfault {
 
         /*! Set handler.
          *
-         * Remove any existing handlers.
+         * Remove any existing handlers and set a new one
          */
         void SetHandler(Handler::ptr_t && handler) {
             std::lock_guard<std::mutex> lock{mutex_};
@@ -724,6 +735,22 @@ namespace logfault {
             level_ = LogLevel::DISABLED;
         }
 
+        /*! Remove a named handler
+         *  @param name The name of the handler to remove
+         */
+        void RemoveHandler(const std::string& name) {
+            if (name.empty()) {
+                return; // Only named handlers can be removed
+            }
+            std::lock_guard<std::mutex> lock{mutex_};
+            handlers_.erase(std::remove_if(handlers_.begin(), handlers_.end(),
+                [&](const Handler::ptr_t& h) { return h->name_ == name; }), handlers_.end());
+
+            // If we removed the last handler, set the level to disabled
+            if (handlers_.empty()) {
+                level_ = LogLevel::DISABLED;
+            }
+        }
 
         void SetLevel(LogLevel level) {
             level_ = level;
