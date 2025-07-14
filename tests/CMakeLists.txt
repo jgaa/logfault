@@ -30,6 +30,7 @@ target_include_directories(default_to_clog
     )
 
 target_link_libraries(default_to_clog
+    logfault::logfault
     ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
@@ -55,6 +56,7 @@ target_include_directories(default_to_clog_with_tid
     )
 
 target_link_libraries(default_to_clog_with_tid
+    logfault::logfault
     ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
 )
