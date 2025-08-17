@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13...3.30 FATAL_ERROR)
 
-set (LOGFAULT_VERSION 0.6.5)
+set (LOGFAULT_VERSION 0.7.0)
 
 project(logfault
     DESCRIPTION "Simple to use, header only C++ library for application-logging on all major platforms."
@@ -20,12 +20,17 @@ set(DEFAULT_LIBRARIES  ${CMAKE_THREAD_LIBS_INIT})
 add_library(${PROJECT_NAME} INTERFACE)
 
 option(LOGFAULT_BUILD_TESTS "Build tests" OFF)
+option(LOGFAULT_BUILD_PERF "Build Performance Benchmarks" OFF)
 
 if(LOGFAULT_BUILD_TESTS)
     find_package(GTest REQUIRED)
     include(CTest)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if (LOGFAULT_BUILD_PERF)
+    add_subdirectory(perf)
 endif()
 
 target_include_directories(${PROJECT_NAME}

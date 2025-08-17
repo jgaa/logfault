@@ -29,25 +29,48 @@ Home: https://github.com/jgaa/logfault
 #ifndef _LOGFAULT_H
 #define _LOGFAULT_H
 
+#include <algorithm>
 #include <array>
 #include <assert.h>
 #include <chrono>
+#include <cstring>
 #include <fstream>
 #include <functional>
 #include <iomanip>
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <streambuf>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
-#include <algorithm>
 
-#if __cplusplus >= 202002L
-#   include <optional>
+// If you have a custom handler and don't want to update your code yet to use
+// the new noexcept handler interface, you can define this to 0.
+// However, make sure you don't mix noexcept and non-noexcept handlers in the same
+// application
+#if !defined(LOGFAULT_USE_NOEXCEPT)
+#   define LOGFAULT_USE_NOEXCEPT 1
+#endif
+
+#if LOGFAULT_USE_NOEXCEPT
+#   define LOGFAULT_NOEXCEPT noexcept
+#else
+#   define LOGFAULT_NOEXCEPT
+#endif
+
+#if LOGFAULT_ENABLE_POSIX_WRITE
+#   include <unistd.h>
+#   include <string.h>
 #endif
 
 #if __cplusplus >= 202002L
+#   include <optional>
+#   include <span>
+#endif
+
+#if __cplusplus >= 201703L
 #   include <string_view>
 #endif
 
@@ -55,8 +78,18 @@ Home: https://github.com/jgaa/logfault
 #   define LOGFAULT_USE_UTCZONE 0
 #endif
 
+#ifndef LOGFAULT_USE_MUTEX
+#   define LOGFAULT_USE_MUTEX 1
+#endif
+
+#if LOGFAULT_USE_MUTEX
+#    define LOGFAULT_LOCK_GUARD std::lock_guard<std::mutex> lock{mutex_};
+#else
+#    define LOGFAULT_LOCK_GUARD
+#endif
+
 #ifndef LOGFAULT_TIME_FORMAT
-#   define LOGFAULT_TIME_FORMAT "%Y-%m-%d %H:%M:%S."
+//#   define LOGFAULT_TIME_FORMAT "%Y-%m-%d %H:%M:%S."
 #endif
 
 #ifndef LOGFAULT_TIME_PRINT_MILLISECONDS
@@ -65,6 +98,13 @@ Home: https://github.com/jgaa/logfault
 
 #ifndef LOGFAULT_TIME_PRINT_TIMEZONE
 #   define LOGFAULT_TIME_PRINT_TIMEZONE 1
+#endif
+
+// You can set this this '\n' to impove the performance a little.
+// For small output streams, the performance difference is negligible.
+// and it will not flush the output stream automatically.
+#ifndef LOGFAULT_ENDL
+#   define LOGFAULT_ENDL std::endl
 #endif
 
 #ifdef LOGFAULT_USE_SYSLOG
@@ -174,7 +214,7 @@ toLog(const T& data, const bool want_json = false) {
 #ifndef LOGFAULT_THREAD_NAME
 #   if defined (LOGFAULT_USE_THREAD_NAME)
 #       include <pthread.h>
-        inline const char *logfault_get_thread_name_() noexcept {
+        inline const char *logfault_get_thread_name_() LOGFAULT_NOEXCEPT {
             thread_local std::array<char, 16> buffer = {};
             if (pthread_getname_np(pthread_self(), buffer.data(), buffer.size()) == 0) {
                 return buffer.data();
@@ -203,10 +243,250 @@ toLog(const T& data, const bool want_json = false) {
 #   undef ERROR
 #endif
 
+#ifndef LOGFAULT_SB_BUFFER_SIZE
+#   define LOGFAULT_SB_BUFFER_SIZE 128u * 2 // 256 bytes
+#endif
 
 namespace logfault {
 
     enum class LogLevel { DISABLED, ERROR, WARN, NOTICE, INFO, DEBUGGING, TRACE };
+
+#if __cplusplus >= 202002L
+namespace sb {
+
+constexpr auto buffer_size = LOGFAULT_SB_BUFFER_SIZE;
+constexpr auto static_buffers = 2;
+using buffer_type = std::array<char, buffer_size>;
+//using pair_type   = std::pair<const char*, std::size_t>;
+using buffers_type = std::span<buffer_type*>;
+using write_t = std::function<void(const buffers_type&, size_t totalBytes)>;
+}
+
+class fast_streambuf : public std::streambuf {
+
+public:
+
+    explicit fast_streambuf(sb::write_t write_func) noexcept //(std::is_nothrow_move_constructible<sb::write_t>::value)
+        : write_func_(std::move(write_func)) {
+        allocate_buffer();
+    }
+
+    ~fast_streambuf() override {
+        sync();
+    }
+
+    void reuse() {
+        sync();
+        allocate_buffer();
+    }
+
+    inline int sync() noexcept override {
+        flush_buffers();
+        return 0;
+    }
+
+    void clear() {
+        clear_heap_buffers();
+    }
+
+    size_t size() const noexcept {
+        switch(buffers_.index()) {
+            case BuffeKind::ARRAY:
+                return std::get<BuffeKind::ARRAY>(buffers_).size() * sb::buffer_size + (pptr() - pbase());
+            case BuffeKind::VECTOR:
+                return std::get<BuffeKind::VECTOR>(buffers_).size() * sb::buffer_size + (pptr() - pbase());
+            default:
+                return 0;
+        }
+    }
+
+    std::string str() {
+        std::string result;
+        if (buffers_.index() == BuffeKind::ARRAY) [[likely]] {
+            auto& array_buffers = std::get<BuffeKind::ARRAY>(buffers_);
+            assert(array_buffers.size() > buffer_count_);
+
+            sb::buffers_type buffer_span(array_buffers.data(), buffer_count_);
+            const size_t last_buffer_size = static_cast<std::size_t>(pptr() - array_buffers[buffer_count_ -1]->data());
+            size_t totalBytes = (buffer_count_ -1) * sb::buffer_size + last_buffer_size;
+
+            result.reserve(totalBytes);
+            for (const auto& b : buffer_span) {
+                auto bytes = std::min(b->size(), totalBytes);
+                result.append(b->data(), bytes);
+                totalBytes -= bytes;
+            }
+        } else if (buffers_.index() == BuffeKind::VECTOR) {
+            auto& vector_buffers = std::get<BuffeKind::VECTOR>(buffers_);
+            assert(vector_buffers.size() >= buffer_count_);
+
+            sb::buffers_type buffer_span(vector_buffers.data(), buffer_count_);
+            const size_t last_buffer_size = static_cast<std::size_t>(pptr() - vector_buffers[buffer_count_ -1]->data());
+            size_t totalBytes = (buffer_count_ -1) * sb::buffer_size + last_buffer_size;
+
+            result.reserve(totalBytes);
+            for (const auto& b : buffer_span) {
+                auto bytes = std::min(b->size(), totalBytes);
+                result.append(b->data(), bytes);
+                totalBytes -= bytes;
+            }
+        }
+        clear();
+        return result;
+    }
+
+protected:
+    inline int_type overflow(int_type ch) noexcept override {
+        if (bad_) [[unlikely]] {
+            return traits_type::eof();
+        }
+        assert(buffers_.index() != BuffeKind::NONE && "No buffers allocated for streambuf");
+        if (traits_type::eq_int_type(ch, traits_type::eof())) {
+            return traits_type::not_eof(ch);
+        }
+        char c = traits_type::to_char_type(ch);
+        char* p = pptr(); char* e = epptr();
+        if (p == e) {
+            allocate_buffer();
+            p = pptr();
+        }
+        *p = c;
+        pbump(1);
+        return ch;
+    }
+
+    inline std::streamsize xsputn(const char* s, std::streamsize count) override {
+        std::streamsize written = 0;
+        while (written < count) {
+            if (bad_) [[unlikely]] {
+                return written;
+            }
+            assert(buffers_.index() != BuffeKind::NONE && "No buffers allocated for streambuf");
+            char* p = pptr(); char* e = epptr();
+            std::size_t space = static_cast<std::size_t>(e - p);
+            if (space == 0) {
+                allocate_buffer();
+                p = pptr(); e = epptr();
+                space = static_cast<std::size_t>(e - p);
+            }
+            std::size_t to_write = std::min(space, static_cast<std::size_t>(count - written));
+            std::memcpy(p, s + written, to_write);
+            pbump(static_cast<int>(to_write));
+            written += to_write;
+        }
+        return written;
+    }
+
+private:
+    inline void allocate_buffer() noexcept {
+        if (buffer_count_ == 0) {
+            // first inline buffer
+            buffers_.emplace<BuffeKind::ARRAY>();
+            auto& a = std::get<BuffeKind::ARRAY>(buffers_);
+            a[0] = &inline_buffer_;
+            auto * b = a[0];
+            setp(b->data(), b->data() + sb::buffer_size);
+        } else if (buffer_count_ < sb::static_buffers) {
+            auto& a = std::get<BuffeKind::ARRAY>(buffers_);
+            try {
+                a[buffer_count_] = new sb::buffer_type;
+            } catch (const std::bad_alloc&) {
+                bad_ = true;
+                return;
+            }
+            auto * b = a[buffer_count_];
+            setp(b->data(), b->data() + sb::buffer_size);
+        } else if (buffer_count_ == sb::static_buffers) {
+            // Switch to vector buffers
+            try {
+                std::vector<sb::buffer_type *> vb;
+                vb.reserve(sb::static_buffers + 16);
+                auto& a = std::get<BuffeKind::ARRAY>(buffers_);
+                vb.insert(vb.end(), a.data(), a.data() + sb::static_buffers);
+                buffers_.emplace<BuffeKind::VECTOR>(std::move(vb));
+                goto expand_vector;
+            } catch (const std::bad_alloc&) {
+                bad_ = true;
+                return;
+            }
+        } else {
+expand_vector:
+            // We have more than static_buffers, so we need to allocate a new buffer
+            auto& vector_buffers = std::get<BuffeKind::VECTOR>(buffers_);
+            try {
+                vector_buffers.emplace_back(new sb::buffer_type);
+            } catch (const std::bad_alloc&) {
+                bad_ = true;
+                return;
+            }
+            setp(vector_buffers.back()->data(), vector_buffers.back()->data() + sb::buffer_size);
+        }
+        ++buffer_count_;
+    }
+
+    inline void flush_buffers() noexcept {
+        if (buffers_.index() == BuffeKind::ARRAY) [[likely]] {
+            auto& array_buffers = std::get<BuffeKind::ARRAY>(buffers_);
+            assert(array_buffers.size() > buffer_count_);
+
+            sb::buffers_type buffer_span(array_buffers.data(), buffer_count_);
+            const size_t last_buffer_size = static_cast<std::size_t>(pptr() - array_buffers[buffer_count_ -1]->data());
+            const size_t totalBytes = (buffer_count_ -1) * sb::buffer_size + last_buffer_size;
+            write_func_(buffer_span, totalBytes);
+
+        } else if (buffers_.index() == BuffeKind::VECTOR) {
+            auto& vector_buffers = std::get<BuffeKind::VECTOR>(buffers_);
+            assert(vector_buffers.size() >= buffer_count_);
+
+            const size_t last_buffer_size = static_cast<std::size_t>(pptr() - vector_buffers[buffer_count_ -1]->data());
+            const size_t totalBytes = (buffer_count_ -1) * sb::buffer_size + last_buffer_size;
+
+            sb::buffers_type buffer_span(vector_buffers.data(), buffer_count_);
+            write_func_(buffer_span, totalBytes);
+        }
+
+        clear_heap_buffers();
+    }
+
+    inline void clear_heap_buffers() noexcept {
+        if (buffers_.index() == BuffeKind::ARRAY) [[likely]] {
+            auto& array_buffers = std::get<BuffeKind::ARRAY>(buffers_);
+            for (auto i = 1ul ; i < buffer_count_; ++i) {
+                assert(array_buffers[i]);
+                assert(i < array_buffers.size());
+                delete array_buffers[i];
+                array_buffers[i] = nullptr;
+            }
+        } else if (buffers_.index() == BuffeKind::VECTOR) {
+            auto& vector_buffers = std::get<BuffeKind::VECTOR>(buffers_);
+            for (auto i = 1ul ; i < buffer_count_; ++i) {
+                assert(i < vector_buffers.size());
+                assert(vector_buffers[i]);
+                delete vector_buffers[i];
+            }
+            vector_buffers.clear();
+        }
+
+        buffer_count_ = 0;
+        buffers_ = std::monostate{};
+    }
+
+    enum BuffeKind {
+        NONE,
+        ARRAY,
+        VECTOR
+    };
+
+    bool bad_{false};
+    sb::buffer_type inline_buffer_;
+    std::variant<std::monostate,
+                 std::array<sb::buffer_type *, sb::static_buffers>,
+                 std::vector<sb::buffer_type *>> buffers_{std::monostate{}};
+
+    std::size_t buffer_count_{0};
+    sb::write_t write_func_;
+};
+#endif // C++20
 
     // Allows us to optimize log statements below a treashold away from the compiled code.
     // Good for release builds to for example totally remove trace messages.
@@ -236,56 +516,107 @@ namespace logfault {
 
     template <typename T>
     void JsonEscape(const T& msg, std::ostream& out) {
-        // Lookup table for hex digits
-        static constexpr char hex[] = "0123456789ABCDEF";
+        static constexpr std::array<char, 16> hex = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+        static constexpr std::array<char, 93> table = {
+            -1, -1, -1, -1, -1, -1, -1, -1, 'b', 't', 'n', -1, 'f', 'r', -1, -1, -1
+            , -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0
+            , 0, '"', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\\'};
 
-        // TODO: Use a static lookup table in stead of many tests
-        for (const char c : msg) {
-            unsigned char uc = static_cast<unsigned char>(c);
-            if (c > '"' && c != '\\') [[likely]] {
-                out.put(c);
-                continue;
-            }
-            switch (c) {
-            case '\"': out.put('\\'); out.put('\"'); break;
-            case '\\': out.put('\\'); out.put('\\'); break;
-            case '\b': out.put('\\'); out.put('b');  break;
-            case '\f': out.put('\\'); out.put('f');  break;
-            case '\n': out.put('\\'); out.put('n');  break;
-            case '\r': out.put('\\'); out.put('r');  break;
-            case '\t': out.put('\\'); out.put('t');  break;
-            default:
-                if (uc < 0x20) [[unlikely]] {
-                    // control characters as \u00XX
-                    out.put('\\'); out.put('u');
-                    out.put('0');  out.put('0');
-                    out.put(hex[(uc >> 4) & 0xF]);
-                    out.put(hex[ uc       & 0xF]);
-                } else {
-                    // regular printable character
-                    out.put(c);
+        // Scan for first non-printable character
+        size_t len = 0;
+        const char *msg_end = msg.data() + msg.size();
+        {
+            for (const auto *p = msg.data(); p < msg_end; ++p) {
+                const auto uc = static_cast<unsigned char>(*p);
+                if (uc < table.size() && table[uc] != 0) {
+                    break;
                 }
+                ++len;
             }
         }
+
+        if (len) {
+            out.write(msg.data(), len);
+        }
+        const auto len_after_escape = msg.size() - len;
+        if (!len_after_escape) [[likely]] {
+            // No need to escape, just write the string as is
+            return;
+        }
+
+        const char *from = msg.data() + len;
+        const char *p = from;
+        
+        std::array<char, 48> buffer;
+        char *pp = buffer.data();
+        const char *buf_end = pp + buffer.size();
+
+        auto flush_buffer = [&]() {
+            if (pp > buffer.data()) {
+                out.write(buffer.data(), pp - buffer.data());
+                pp = buffer.data();
+            }
+        };
+
+        auto putc_buffer = [&](char c) {
+            if (pp >= buf_end) [[unlikely]] {
+                flush_buffer();
+            }
+            *pp = c;
+            ++pp;
+        };
+
+        for (; p < msg_end; ++p) {
+            const auto uc = static_cast<unsigned char>(*p);
+            if (uc >= table.size()) {
+                // This is a printable character, just write it
+                putc_buffer(*p);
+                continue;
+            }
+
+            assert(uc < table.size());
+            const auto tc = table[uc];
+            if (tc == 0) [[likely]] {
+                putc_buffer(*p);
+                continue;
+            }
+            if (tc > 0) {
+                putc_buffer('\\');
+                putc_buffer(tc);
+                continue;
+            }
+
+            assert(uc < 0x20);
+            // control characters as \u00XX
+            putc_buffer('\\'); putc_buffer('u');
+            putc_buffer('0');  putc_buffer('0');
+            putc_buffer(hex[(uc >> 4) & 0xF]);
+            putc_buffer(hex[ uc       & 0xF]);
+        }
+
+        flush_buffer();
     }
 
     struct Message {
 #if __cplusplus >= 202002L
         using extras_t = std::function<Extra(bool wantJson)>;
 #endif
-        Message(const std::string && msg, const LogLevel level, const char *file = nullptr
+        Message(const std::string& msg, const LogLevel level, const char *file = nullptr
                 , const int line = 0, const char *func = nullptr
 #if __cplusplus >= 202002L
                 , const extras_t& log_fn = nullptr
 #endif
-            )
-            : msg_{std::move(msg)}, level_{level}, file_{file}, line_{line}, func_{func}
+            ) LOGFAULT_NOEXCEPT
+            : msg_{msg}, level_{level}, file_{file}, line_{line}, func_{func}
 #if __cplusplus >= 202002L
             , log_fn_{log_fn}
 #endif
         {}
 
-        const std::string msg_;
+        const std::string& msg_;
         const std::chrono::system_clock::time_point when_ = std::chrono::system_clock::now();
         const LogLevel level_;
         const char *file_{};
@@ -297,6 +628,33 @@ namespace logfault {
         const std::string thread_{ThreadNameToString(LOGFAULT_THREAD_NAME)};
     };
 
+    void PrintTimestamp(const struct tm *tm, int ms, std::ostream& out) LOGFAULT_NOEXCEPT {
+        assert(tm != nullptr);
+#if defined(LOGFAULT_TIME_FORMAT)
+        out << std::put_time(tm, LOGFAULT_TIME_FORMAT);
+#else
+#if LOGFAULT_TIME_PRINT_TIMEZONE
+#   if LOGFAULT_USE_UTCZONE
+        const char *zone " UTC";
+#   else
+        const char *zone = tm->tm_zone;
+#   endif
+#else // LOGFAULT_TIME_PRINT_TIMEZONE
+        const char *zone = "";
+#endif
+        std::array<char, 48> buffer;
+        const int len = std::snprintf(buffer.data(), buffer.size(),
+                                "%04d-%02d-%02d %02d:%02d:%02d.%03d %s",
+                                tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+                                tm->tm_hour, tm->tm_min, tm->tm_sec,
+                                ms, zone);
+#endif
+
+        if (len > 0) {
+            out.write(buffer.data(), len);
+        }
+    }
+
     class Handler {
     public:
         Handler(LogLevel level = LogLevel::INFO)
@@ -307,54 +665,46 @@ namespace logfault {
         virtual ~Handler() = default;
         using ptr_t = std::unique_ptr<Handler>;
 
-        virtual void LogMessage(const Message& msg) = 0;
+        virtual void LogMessage(const Message& msg) LOGFAULT_NOEXCEPT = 0;
         const LogLevel level_;
         const std::string name_;
 
 // check if c++20 or later
-#if __cplusplus >= 202002L
-        static std::string_view LevelName(const LogLevel level) {
+#if __cplusplus >= 201703L
+        static std::string_view LevelName(const LogLevel level) LOGFAULT_NOEXCEPT {
             static constexpr std::array<std::string_view, 7> names =
                 {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}};
-            return names.at(static_cast<size_t>(level));
+            assert(static_cast<size_t>(level) < names.size() && "LogLevel out of range");
+            return names[static_cast<size_t>(level)];
         }
 #else
         static const char * LevelName(const LogLevel level) {
             static const std::array<const char *, 7> names =
                 {{"DISABLED", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}};
-            return names.at(static_cast<size_t>(level));
+            assert(static_cast<size_t>(level) < names.size() && "LogLevel out of range");
+            return names[static_cast<size_t>(level)];
         }
 #endif
 
-        void PrintTime(std::ostream& out, const logfault::Message& msg) {
+        static void PrintTime(std::ostream& out, const logfault::Message& msg) LOGFAULT_NOEXCEPT {
             auto tt = std::chrono::system_clock::to_time_t(msg.when_);
             auto when_rounded = std::chrono::system_clock::from_time_t(tt);
             if (when_rounded > msg.when_) {
                 --tt;
                 when_rounded -= std::chrono::seconds(1);
             }
+
             if (const auto tm = (LOGFAULT_USE_UTCZONE ? std::gmtime(&tt) : std::localtime(&tt))) {
                 const int ms = std::chrono::duration_cast<std::chrono::duration<int, std::milli>>(msg.when_ - when_rounded).count();
 
-                out << std::put_time(tm, LOGFAULT_TIME_FORMAT)
-#if LOGFAULT_TIME_PRINT_MILLISECONDS
-                    << std::setw(3) << std::setfill('0') << ms
-#endif
-#if LOGFAULT_TIME_PRINT_TIMEZONE
-#   if LOGFAULT_USE_UTCZONE
-                    << " UTC";
-#   else
-                    << std::put_time(tm, " %Z")
-#   endif
-#endif
-                ;
+                PrintTimestamp(tm, ms, out);
             } else {
                 out << "0000-00-00 00:00:00.000";
             }
 
         }
 
-        void PrintMessage(std::ostream& out, const logfault::Message& msg) {
+        static void PrintMessage(std::ostream& out, const logfault::Message& msg) LOGFAULT_NOEXCEPT {
             PrintTime(out, msg);
 
             out << ' ' << LevelName(msg.level_)
@@ -373,7 +723,7 @@ namespace logfault {
             out  << ' ' << msg.msg_;
         }
 
-        static const char *ShortenPath(const char *path) {
+        static const char *ShortenPath(const char *path) LOGFAULT_NOEXCEPT {
             assert(path);
             if (LOGFAULT_LOCATION_LEVELS <= 0) {
                 return path;
@@ -402,15 +752,60 @@ namespace logfault {
         StreamHandler(const std::string& path, LogLevel level, const bool truncate = false) : Handler(level)
         , file_{new std::ofstream{path, std::ios::out | (truncate ? std::ios::trunc : std::ios::app)}}, out_{*file_} {}
 
-        void LogMessage(const Message& msg) override {
+        void LogMessage(const Message& msg) LOGFAULT_NOEXCEPT override {
             PrintMessage(out_, msg);
-            out_ << std::endl;
+            out_ << LOGFAULT_ENDL;
         }
 
     private:
         std::unique_ptr<std::ostream> file_;
         std::ostream& out_;
     };
+
+#if __cplusplus >= 202002L
+    class StreamBufferHandler : public Handler {
+    public:
+        StreamBufferHandler(int fd, LogLevel level)
+            : Handler(level), sb_{[fd](const sb::buffers_type& buffers, size_t bytes) -> void {
+                for(const auto& b : buffers) {
+                    bytes -= write(fd, b->data(), std::min(b->size(), bytes));
+
+                }
+            }} {}
+
+        void LogMessage(const Message& msg) LOGFAULT_NOEXCEPT override {
+            std::ostream os{ &sb_ };     // wrap the streambuf
+            PrintMessage(os, msg);
+            os << '\n';
+            sb_.reuse();
+        }
+
+    private:
+        fast_streambuf sb_;
+    };
+
+#endif
+
+#ifdef LOGFAULT_ENABLE_POSIX_WRITE
+    class FileIOHandler : public Handler {
+    public:
+        FileIOHandler(int out, LogLevel level) : Handler(level), out_{out} {}
+
+        void LogMessage(const Message& msg) LOGFAULT_NOEXCEPT override {
+            std::ostringstream buffer;
+            PrintMessage(buffer, msg);
+            buffer << '\n';
+            const auto str = buffer.str();
+            if (write(out_, str.data(), str.size()) != static_cast<ssize_t>(str.size())) {
+                // Handle error, e.g., throw an exception or log an error
+                std::cerr << "Logfault: Failed to write to file descriptor " << out_ << ": " << strerror(errno) << '\n';
+            }
+        }
+
+    private:
+        int out_;
+    };
+#endif
 
     class JsonHandler : public Handler {
     public:
@@ -438,14 +833,21 @@ namespace logfault {
             }
         }
 
-        void LogMessage(const Message& msg) override {
+        void LogMessage(const Message& msg) LOGFAULT_NOEXCEPT override {
         // Use severity level names recognized by Grafana
-#if __cplusplus >= 202002l
+#if __cplusplus >= 201703L
             static constexpr std::array<std::string_view, 7> names =
 #else
             static const std::array<const char *, 7> names =
 #endif
             {{"disabled", "error", "warn", "info", "info", "debug", "trace"}};
+
+#if __cplusplus >= 201703L
+            static constexpr std::array<std::string_view, 7> label_names =
+#else
+            static const std::array<const char *, 7> label_names =
+#endif
+            {{"time", "level", "thread", "src_file", "src_line", "func", "log"}};
 
 #if __cplusplus >= 202002L
             std::optional<Extra> extra;
@@ -456,18 +858,30 @@ namespace logfault {
 #endif
 
             bool first = true;
-            auto add = [&](const char *name, const char *value) {
+            auto add_label = [&](Fields label) {
+                const auto name = label_names[static_cast<size_t>(label)];
                 if (first) [[unlikely]] {
                     first = false;
                 } else {
                     out_ << ',';
                 }
                 out_ << '"' << name << "\":\"";
-
-                if (value) {
-                    out_ << value << '"';
-                }
             };
+
+            auto add = [&](Fields label,
+#if __cplusplus >= 201703L
+                            std::string_view value
+#else
+                            const char *value
+#endif
+                        ) {
+                add_label(label);
+#if __cplusplus < 201703L
+                assert(value != nullptr);
+#endif
+                out_ << value;
+            };
+
 
             auto add_json = [&](const auto json) {
                 if (first) [[unlikely]] {
@@ -481,33 +895,33 @@ namespace logfault {
             out_ << '{';
 
             if (fields_ & (1 << Fields::TIME)) {
-                add("time", {});
+                add_label(Fields::TIME);
                 PrintTime(out_, msg);
                 out_ << '"';
             }
 
             if (fields_ & (1 << Fields::LEVEL)) {
-                add("level", {});
+                add_label(Fields::LEVEL);
                 assert(static_cast<unsigned int>(msg.level_) < names.size() && "LogLevel out of range");
                 out_ << names[static_cast<unsigned int>(msg.level_)] << '"';
             }
 
             if (fields_ & (1 << Fields::THREAD)) {
-                add("thread", {});
+                add_label(Fields::THREAD);
                 out_ << LOGFAULT_THREAD_NAME << '"';
             }
 
             if (fields_ & (1 << Fields::FILE) && msg.file_) {
-                add("src_file", ShortenPath(msg.file_));
+                add(Fields::FILE, ShortenPath(msg.file_));
             }
 
             if (fields_ & (1 << Fields::LINE) && msg.line_) {
-                add("src_line", {});
+                add_label(Fields::LINE);
                 out_ << msg.line_ << '"';
             }
 
             if (fields_ & (1 << Fields::FUNC) && msg.func_) {
-                add("func", msg.func_);
+                add(Fields::FUNC, msg.func_);
             }
 
 #if __cplusplus >= 202002L
@@ -517,7 +931,7 @@ namespace logfault {
 #endif
 
             if (fields_ & (1 << Fields::MSG)) {
-                add("log", {});
+                add_label(Fields::MSG);
                 JsonEscape(msg.msg_, out_);
 #if __cplusplus >= 202002L
                 if (extra && !extra->content.empty()) {
@@ -527,7 +941,7 @@ namespace logfault {
                 out_ << '"';
             }
 
-            out_ << '}' << std::endl;
+            out_ << '}' << LOGFAULT_ENDL;
         }
 
     private:
@@ -538,7 +952,7 @@ namespace logfault {
 
     class ProxyHandler : public Handler {
     public:
-        using fn_t = std::function<void(const Message&)>;
+        using fn_t = std::function<void(const Message&)> ;
 
         ProxyHandler(const fn_t& fn, LogLevel level) : Handler(level), fn_{fn} {
             assert(fn_);
@@ -549,8 +963,12 @@ namespace logfault {
             assert(fn_);
         }
 
-        void LogMessage(const logfault::Message& msg) override {
-            fn_(msg);
+        void LogMessage(const logfault::Message& msg) LOGFAULT_NOEXCEPT override {
+            try {
+                fn_(msg);
+            } catch (const std::exception& e) {
+                assert(false);
+            }
         }
 
     private:
@@ -568,7 +986,7 @@ namespace logfault {
             });
         }
 
-        void LogMessage(const logfault::Message& msg) override {
+        void LogMessage(const logfault::Message& msg) LOGFAULT_NOEXCEPT override {
             static const std::array<int, 6> syslog_priority =
                 { LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG, LOG_DEBUG };
 
@@ -583,7 +1001,7 @@ namespace logfault {
         AndroidHandler(const std::string& name, LogLevel level)
         : Handler(level), name_{name} {}
 
-        void LogMessage(const logfault::Message& msg) override {
+        void LogMessage(const logfault::Message& msg) LOGFAULT_NOEXCEPT override {
             static const std::array<int, 7> android_priority =
                 { ANDROID_LOG_SILENT, ANDROID_LOG_ERROR, ANDROID_LOG_WARN, ANDROID_LOG_INFO,
                   ANDROID_LOG_INFO, ANDROID_LOG_DEBUG, ANDROID_LOG_VERBOSE };
@@ -606,7 +1024,7 @@ namespace logfault {
         QtHandler(LogLevel level)
         : Handler(level) {}
 
-        void LogMessage(const logfault::Message& msg) override {
+        void LogMessage(const logfault::Message& msg) LOGFAULT_NOEXCEPT override {
             switch(msg.level_) {
                 case LogLevel::ERROR:
                     qWarning() << "[Error] "<< msg.msg_;
@@ -635,12 +1053,12 @@ namespace logfault {
         CocoaHandler(LogLevel level)
         : Handler(level) {}
 
-        void LogMessage(const logfault::Message& msg) override;
+        void LogMessage(const logfault::Message& msg) LOGFAULT_NOEXCEPT override;
     };
 
     // Must be defined once, when included to a .mm file
     #ifdef LOGFAULT_USE_COCOA_NLOG_IMPL
-        void CocoaHandler::LogMessage(const logfault::Message& msg) {
+        void CocoaHandler::LogMessage(const logfault::Message& msg) LOGFAULT_NOEXCEPT {
             const std::string text = LevelName(msg.level_) + " " + msg.msg_;
             NSLog(@"%s", text.c_str());
         }
@@ -659,7 +1077,7 @@ namespace logfault {
                 DeregisterEventSource(h_);
             }
 
-            void LogMessage(const logfault::Message& msg) override {
+            void LogMessage(const logfault::Message& msg) LOGFAULT_NOEXCEPT override {
                 if (!h_) {
                     return;
                 }
@@ -696,8 +1114,8 @@ namespace logfault {
             return instance;
         }
 
-        void LogMessage(Message message) {
-            std::lock_guard<std::mutex> lock{mutex_};
+        void LogMessage(Message message) LOGFAULT_NOEXCEPT {
+            LOGFAULT_LOCK_GUARD
             for(const auto& h : handlers_) {
                 if (h->level_ >= message.level_) {
                     h->LogMessage(message);
@@ -706,7 +1124,7 @@ namespace logfault {
         }
 
         void AddHandler(Handler::ptr_t && handler) {
-            std::lock_guard<std::mutex> lock{mutex_};
+            LOGFAULT_LOCK_GUARD
 
             // Make sure we log at the most detailed level used
             if (level_ < handler->level_) {
@@ -720,7 +1138,7 @@ namespace logfault {
          * Remove any existing handlers and set a new one
          */
         void SetHandler(Handler::ptr_t && handler) {
-            std::lock_guard<std::mutex> lock{mutex_};
+            LOGFAULT_LOCK_GUARD
             handlers_.clear();
             level_ = handler->level_;
             handlers_.push_back(std::move(handler));
@@ -730,7 +1148,7 @@ namespace logfault {
           * 
           */
         void ClearHandlers() {
-            std::lock_guard<std::mutex> lock{mutex_};
+            LOGFAULT_LOCK_GUARD
             handlers_.clear();
             level_ = LogLevel::DISABLED;
         }
@@ -742,7 +1160,7 @@ namespace logfault {
             if (name.empty()) {
                 return; // Only named handlers can be removed
             }
-            std::lock_guard<std::mutex> lock{mutex_};
+            LOGFAULT_LOCK_GUARD
             handlers_.erase(std::remove_if(handlers_.begin(), handlers_.end(),
                 [&](const Handler::ptr_t& h) { return h->name_ == name; }), handlers_.end());
 
@@ -756,18 +1174,20 @@ namespace logfault {
             level_ = level;
         }
 
-        LogLevel GetLoglevel() const noexcept {
+        LogLevel GetLoglevel() const LOGFAULT_NOEXCEPT {
             return level_;
         }
 
-        bool IsRelevant(const LogLevel level) const noexcept {
-            return !handlers_.empty() && (level <= level_);
+        bool IsRelevant(const LogLevel level) const LOGFAULT_NOEXCEPT {
+            return (level <= level_);
         }
 
     private:
         std::vector<Handler::ptr_t> handlers_;
+#if LOGFAULT_USE_MUTEX
         std::mutex mutex_;
-        LogLevel level_ = LogLevel::ERROR;
+#endif
+        LogLevel level_ = LogLevel::DISABLED;
     };
 
 #if __cplusplus >= 202002L
@@ -780,14 +1200,16 @@ namespace logfault {
 
         ~Log() {
             if constexpr (sizeof...(Args) == 0) {
-                LogManager::Instance().LogMessage({out_.str(), level_, file_, line_, func_});
+                const auto msg = out_.str();
+                LogManager::Instance().LogMessage({msg, level_, file_, line_, func_});
                 return;
             }
 
             constexpr std::size_t num_args = sizeof...(Args);
 
             if constexpr (num_args ==  0) {
-                LogManager::Instance().LogMessage({out_.str(), level_, file_, line_, func_});
+                const auto msg = out_.str();
+                LogManager::Instance().LogMessage({msg, level_, file_, line_, func_});
                 return;
             } else {
                 auto log_fn = [&](bool wantJson) -> Extra {
@@ -817,23 +1239,24 @@ namespace logfault {
 
                     return {extra_content.str(), extra_json.str()};
                 };
-
-                LogManager::Instance().LogMessage({out_.str(), level_, file_, line_, func_, log_fn});
+                const auto msg = out_.str();
+                LogManager::Instance().LogMessage({msg, level_, file_, line_, func_, log_fn});
             }
         }
 #else
     class Log {
         public:
-        Log(const LogLevel level, const char *file, const int line, const char *func)
+        Log(const LogLevel level, const char *file, const int line, const char *func) LOGFAULT_NOEXCEPT
             : level_{level}, file_{file}, line_{line}, func_{func} {}
         ~Log() {
-            Message message(out_.str(), level_, file_, line_, func_);
+            const auto msg = out_.str();
+            Message message(msg, level_, file_, line_, func_);
             LogManager::Instance().LogMessage(message);
         }
 
 #endif
-        Log(const LogLevel level) : level_{level} {}
-        std::ostringstream& Line() { return out_; }
+        Log(const LogLevel level) LOGFAULT_NOEXCEPT : level_{level} {}
+        std::ostream& Line() { return out_; }
 
 private:
         const LogLevel level_;
@@ -841,6 +1264,8 @@ private:
         const int line_{};
         const char *func_{};
         std::ostringstream out_;
+        //fast_streambuf sb_{{}};
+        //std::ostream out_{&sb_};
     };
 
 #if __cplusplus >= 202002L

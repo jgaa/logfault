@@ -62,3 +62,33 @@ target_link_libraries(default_to_clog_with_tid
 )
 
 add_test(NAME default_to_clog_with_tid COMMAND default_to_clog_with_tid)
+
+
+
+####### json_escape_tests
+
+add_executable(json_escape_tests
+    json_escape_tests.cpp
+    )
+
+target_compile_definitions(json_escape_tests PRIVATE LOGFAULT_USE_TID_AS_NAME=1)
+
+set_property(TARGET json_escape_tests PROPERTY CXX_STANDARD 17)
+
+target_include_directories(json_escape_tests
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${LOGFAULT_ROOT}/include
+    ${GTEST_INCLUDE_DIRS}
+    ${CMAKE_BINARY_DIR}/exports
+    )
+
+target_link_libraries(json_escape_tests
+    logfault::logfault
+    ${GTEST_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+)
+
+add_test(NAME json_escape_tests COMMAND json_escape_tests)
+
+
