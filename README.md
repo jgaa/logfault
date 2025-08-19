@@ -148,6 +148,31 @@ int main() {
 
 ```
 
+## Linux, systemd
+
+If you want to log directly to the systemd log.
+
+Note that the **SystemdHandler** require at least C++17.
+
+```C++
+
+#define LOGFAULT_WITH_SYSTEMD
+#include "logfault/logfault.h"
+
+int main() {
+
+    // Set up a log-handler to systemd
+    logfault::SystemdHandler::Options opt;
+    opt.ident = "my-app-name";
+
+    logfault::LogManager::Instance().AddHandler(make_unique<logfault::SystemdHandler>(logfault::LogLevel::INFO));
+
+    LFLOG_INFO << "Hello to journalctl";
+}
+
+
+```
+
 ## Windows EventLog
 The library can send log-events to the Windows EventLog under Windows.
 
@@ -196,6 +221,52 @@ int main( int argc, char *argv[]) {
         logfault::LogLevel::DEBUGGING));
 
     LFLOG_DEBUG << "Logging to QT's log macros is enabled at DEBUG level";
+}
+```
+
+In practice, I usually go the other way and log from QT to logfault, using something like this:
+
+```C++
+
+void logQtMessages(QtMsgType type, const QMessageLogContext &context, const QString &rawMsg)
+{
+    auto msg = rawMsg;
+    msg.replace('\n', ' ');
+
+    switch (type) {
+    case QtDebugMsg:
+        LOG_TRACE << "[Qt] " << msg;
+        break;
+    case QtInfoMsg:
+        LOG_DEBUG << "[Qt] " << msg;
+        break;
+    case QtWarningMsg: {
+        // remove spam messages
+        static const QRegularExpression filter{"is neither a default constructible QObject"
+                                               "|Cannot anchor to an item that isn't a parent or sibling"
+                                               "|Detected anchors on an item that is managed by a layout"};
+        if (filter.match(msg).hasMatch()) {
+            LOG_TRACE << "[Qt] " << msg;
+            break;
+        }
+        LOG_WARN << "[Qt] " << msg;
+        } break;
+    case QtCriticalMsg:
+        LOG_ERROR << "[Qt] " << msg;
+        break;
+    case QtFatalMsg:
+        LOG_ERROR << "[Qt **FATAL**] " << msg;
+        exit(-1);
+        break;
+    }
+}
+
+int main(int argc, char *argv[])
+{
+   ...
+   // After logfault is initialized with at least one handler
+   qInstallMessageHandler(logQtMessages);
+   ...
 }
 ```
 
@@ -319,3 +390,4 @@ Under *Linux*, you can use these additional defines (before including `logfault/
 
 - **`LOGFAULT_USE_TID_AS_NAME`** Use the system wide thread id. This is the same ID that show up in tools such as top, htop, atop etc. as *pid*. This is useful if yo use such tools to examine your running application.
 - **`LOGFAULT_USE_THREAD_NAME`** Use whatever name you assigned to each therad with `pthread_setname_np()`. You may find this useful if you name each individual thread, and step trough your application with the debugger. The log-events will then match the thread-names showed by the debugger.
+

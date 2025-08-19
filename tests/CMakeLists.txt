@@ -91,4 +91,29 @@ target_link_libraries(json_escape_tests
 
 add_test(NAME json_escape_tests COMMAND json_escape_tests)
 
+####### systemd_tests
+
+add_executable(systemd_tests
+    systemd_tests.cpp
+    )
+
+target_compile_definitions(systemd_tests PRIVATE LOGFAULT_USE_TID_AS_NAME=1)
+
+set_property(TARGET systemd_tests PROPERTY CXX_STANDARD 17)
+
+target_include_directories(systemd_tests
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${LOGFAULT_ROOT}/include
+    ${GTEST_INCLUDE_DIRS}
+    ${CMAKE_BINARY_DIR}/exports
+    )
+
+target_link_libraries(systemd_tests
+    logfault::logfault
+    ${GTEST_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+)
+
+add_test(NAME systemd_tests COMMAND systemd_tests)
 

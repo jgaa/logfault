@@ -1,5 +1,4 @@
 #pragma once
-
 /*
 MIT License
 
@@ -107,7 +106,14 @@ Home: https://github.com/jgaa/logfault
 #   define LOGFAULT_ENDL std::endl
 #endif
 
-#ifdef LOGFAULT_USE_SYSLOG
+#ifdef LOGFAULT_WITH_SYSTEMD
+#   include <sys/uio.h>
+#   include <dlfcn.h>
+#   include <unistd.h>
+#   include <sys/syscall.h>
+#endif
+
+#if defined(LOGFAULT_USE_SYSLOG) || defined(LOGFAULT_WITH_SYSTEMD)
 #   include <syslog.h>
 #endif
 
@@ -974,6 +980,180 @@ expand_vector:
     private:
         const fn_t fn_;
     };
+
+#ifdef LOGFAULT_WITH_SYSTEMD
+#if __cplusplus < 201703L
+        static_assert(false, "SystemdHandler requires C++17 or newer");
+#endif
+
+    class SystemdHandler final : public Handler {
+        static constexpr auto max_fields = 12u; // maximum number of fields we can send to journald
+    public:
+        using sd_journal_sendv_t = int (*)(const struct iovec *iov, int n);
+        struct Options {
+            Options() {};
+            std::string_view ident{"logfault"}; // syslog identifier, defaults to "logfault"
+        };
+
+        explicit SystemdHandler(LogLevel level = LogLevel::INFO, const Options& opt = {})
+            : Handler(level), opt_(opt) {
+            init_backend();
+        }
+
+        explicit SystemdHandler(const std::string& name, LogLevel level = LogLevel::INFO, const Options& opt = {})
+            : Handler(name, level), opt_(opt) {
+            init_backend();
+        }
+
+        // For unit testing
+        explicit SystemdHandler(sd_journal_sendv_t fn, const std::string& name, LogLevel level = LogLevel::INFO, const Options& opt = {})
+            : Handler(name, level), opt_(opt), sd_journal_sendv_{fn} {
+            assert(sd_journal_sendv_);
+        }
+
+        ~SystemdHandler() override {
+        }
+
+        void LogMessage(const Message& m) LOGFAULT_NOEXCEPT override {
+                send_to_journald(m);
+        }
+
+    private:
+        Options opt_;
+        sd_journal_sendv_t sd_journal_sendv_{};
+
+        static int map_priority(LogLevel lvl) {
+            // journald/syslog priorities: 0=EMERG..7=DEBUG
+            switch (lvl) {
+            case LogLevel::ERROR:   return 3; // ERR
+            case LogLevel::WARN: return 4; // WARNING
+            case LogLevel::INFO:    return 6; // INFO
+            case LogLevel::DEBUGGING:   return 7; // DEBUG
+            case LogLevel::TRACE:   return 7; // DEBUG
+            default:                return 5; // NOTICE
+            }
+        }
+
+        void init_backend() {
+            // Try to load libsystemd lazily
+            void* h = dlopen("libsystemd.so.0", RTLD_LAZY | RTLD_LOCAL);
+            if (!h) {
+                const auto err = dlerror();
+                const std::string err_str{err ? err : "Unknown error"};
+                throw std::runtime_error{"Failed to load libsystemd: " + err_str};
+            }
+            sd_journal_sendv_ = reinterpret_cast<sd_journal_sendv_t>(
+                dlsym(h, "sd_journal_sendv"));
+            if (!sd_journal_sendv_) {
+                auto err = dlerror();
+                std::string err_str{err ? err : "Unknown error"};
+                throw std::runtime_error{"Failed to find sd_journal_sendv in libsystemd: " + err_str};
+            }
+        }
+
+        void send_to_journald(const Message& m) LOGFAULT_NOEXCEPT {
+            // Build fields
+            // TODO: Avoid individual strings as buffers
+            std::array<std::string, max_fields> storage;
+            std::array<iovec, max_fields> vec;
+            auto num_fields = 0u;
+
+            enum class Fields {
+                MESSAGE, PRIORITY, CODE_FILE, CODE_FUNC, CODE_LINE,
+                SYSLOG_IDENTIFIER, LOGGER, PID, THREAD_ID, TIMESTAMP,
+                LOGFAULT_JSON
+            };
+
+            static constexpr std::array<std::string_view, 11> fields =
+            {{"MESSAGE", "PRIORITY", "CODE_FILE", "CODE_FUNC", "CODE_LINE",
+              "SYSLOG_IDENTIFIER", "LOGGER", "PID", "THREAD_ID", "TIMESTAMP",
+              "LOGFAULT_JSON"}};
+
+            auto push_field = [&](Fields f, std::string_view value) {
+                if (num_fields < max_fields) {
+                    if (value.empty()) return; // skip empty fields
+
+                    auto& buffer = storage[num_fields];
+                    assert(static_cast<unsigned>(f) < fields.size());
+                    auto key = fields[static_cast<size_t>(f)];
+                    buffer.reserve(key.size() + 1 + value.size());
+                    buffer.append(key.data(), key.size());
+                    buffer.push_back('=');
+                    buffer.append(std::move(value));
+                    vec[num_fields] = {const_cast<char*>(buffer.data()),
+                                       static_cast<size_t>(buffer.size())};
+
+                    ++num_fields;
+                } else [[unlikely]] {
+                    assert(false);
+                    ; // Silently ignore the error. We can't throw here.
+                }
+            };
+
+            // Required message and priority
+            push_field(Fields::MESSAGE, to_text_message(m));
+            push_field(Fields::PRIORITY, std::to_string(map_priority(m.level_)));
+
+            // Standard code locations (journald recognizes these)
+            if (m.file_)   push_field(Fields::CODE_FILE, m.file_);
+            if (m.func_)   push_field(Fields::CODE_FUNC, m.func_);
+            if (m.line_)   push_field(Fields::CODE_LINE, std::to_string(m.line_));
+
+            // Identity
+            if (!opt_.ident.empty()) push_field(Fields::SYSLOG_IDENTIFIER, opt_.ident);
+
+            // Thread / process meta (optional)
+            push_field(Fields::PID, std::to_string(::getpid()));
+            push_field(Fields::THREAD_ID, std::to_string(__NR_gettid));
+
+            // Timestamp (journald will timestamp on receive; including ISO can help searches)
+            auto tt = std::chrono::system_clock::to_time_t(m.when_);
+            auto when_rounded = std::chrono::system_clock::from_time_t(tt);
+            if (when_rounded > m.when_) {
+                --tt;
+                when_rounded -= std::chrono::seconds(1);
+            }
+            if (const auto tm = (LOGFAULT_USE_UTCZONE ? std::gmtime(&tt) : std::localtime(&tt))) {
+                const int ms = std::chrono::duration_cast<std::chrono::duration<int, std::milli>>(m.when_ - when_rounded).count();
+
+#           if LOGFAULT_USE_UTCZONE
+                const char *zone " UTC";
+#           else
+                const char *zone = tm->tm_zone;
+#           endif
+
+                std::array<char, 48> buffer;
+                const int len = std::snprintf(buffer.data(), buffer.size(),
+                                              "%04d-%02d-%02d %02d:%02d:%02d.%03d %s",
+                                              tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+                                              tm->tm_hour, tm->tm_min, tm->tm_sec,
+                                              ms, zone);
+                push_field(Fields::TIMESTAMP, std::string_view{buffer.data(), static_cast<std::size_t>(len)});
+            }
+
+            assert(sd_journal_sendv_);
+            if (sd_journal_sendv_) {
+                (void)sd_journal_sendv_(vec.data(), static_cast<int>(num_fields));
+            }
+        }
+
+        // --- tiny helpers: adapt these to your Message type ---
+        static std::string to_text_message(const Message& m) {
+#if __cplusplus >= 202002L
+            if (m.log_fn_) {
+                Extra extra = m.log_fn_(false);
+                std::string buf;
+                buf.reserve(m.msg_.size() + 1 + extra.content.size());
+                buf = m.msg_ + " " + extra.content;
+                return buf;
+            }
+#endif
+
+            return m.msg_;
+        }
+    };
+
+#endif // LOGFAULT_WITH_SYSTEMD
 
 #ifdef LOGFAULT_USE_SYSLOG
     class SyslogHandler : public Handler {
