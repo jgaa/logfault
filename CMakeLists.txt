@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13...3.30 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.05...3.30 FATAL_ERROR)
 
 set (LOGFAULT_VERSION 0.7.0)
 
