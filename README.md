@@ -10,15 +10,9 @@ No dependencies, except the standard-library for C++11 and platform dependent lo
 
 Simply because I am tired of using different log methods on different platforms. Most of the C++ code I write is highly portable, and it makes sense to add logging in a convenient manner. For me that is to send the log to a std::ostream like device. Logging should be as easy as writing to `std::cout`!
 
-*Logfault* can write log-events to traditional log-files, but it's also capable of using the native logging facility for the target platform for the target application. That meas that you can write your C++ library, and then let the consumer of the library configure logging for the platform they build it for.
+*Logfault* can write log-events to traditional log-files, but it's also capable of using the native logging facility for the target platform for the target application. That means that you can write your C++ library, and then let the consumer of the library configure logging for the platform they build it for.
 
-**Why not just use Boost.Log**? First of all - I don't like it. I find it over-engineered. It don't flush the log automatically. And - more importantly - a lot of projects don't use the boost library. It's a pain to use with Android NDK or IOS - and it's time-consuming to compile and include it in projects even on Windows. 
-(As of June 2020; with Boost 1.70 - 1.73 (at least) there is a bug in cmake that breaks linking Boost.Log (because Boost.Log require two - yes two - binary libraries to shoot itself in the foot with), making it pretty hard to even use it. Not the first time. There have been plenty of linking problems with Booost.Log in the past. This is the kind of friction that makes C++ slow to work with and takes developers focus away from the task at hand).
-
-For example - I currently develop a general C++ library under Linux, with few dependencies and no use of boost. It use CMake, and when I build it for testing, I log to std::clog, and inspect the logs in *kdevelop*. The library is used by apps for IOS and Android. Adding a dependency to Boost just to get the Boost.Log library may
-be a lot more work than it's worth.
-
-*Logfaut* is not meant as a replacement of a sophisticated logger for a large application. It's more like a
+*Logfault* is not meant as a replacement of a sophisticated logger for a large application. It's more like a
 hack to get logging right, in libraries, smaller applications and mobile apps written in C++. It was written
 in a few hours when I desperately needed to get log-output from the C++ library for Android and IOS mentioned above.
 In the following days I have spent a few extra hours to make it a little more mature, and hopefully useful for other developers as well.
@@ -27,11 +21,10 @@ In the following days I have spent a few extra hours to make it a little more ma
 
 - Header only library.
 - Very, very easy to use: `LFLOG_DEBUG << "We are entering foo foo: " << 1 << 2 << 3;`
-- Compact, less that 400 lines of code - including blank lines and comments.
 - Designed to make a tiny binary footprint; ideal for mobile and IoT.
 - Ideal for X-platform apps and libraries; logs to files, syslog, IOS/macOS `NSLog()`, Android's `__android_log_write()`, QT log macros and the Windows EventLog.
-- Log statements are not evaluated unless they will be logged (filtered by log-level)
-- Uses the C++ preprocessor to totally remove verbose log statements when you don't need them.
+- Lazy evaluation. Log statements are not evaluated unless they will be logged (filtered by log-level)
+- Compile time filter for lowest enabled log-level. Can be used to totally remove TRACE level evaluation from release builds.
 - Flexible time-stamps, easy to use local-time or UTC.
 - Can log to several log-targets at different log-levels.
 - Written by someone who has worked extensively with logging for decades (from tiny libraries and applications, to owning the log/event libraries in a two digits multi million line C++ application from one of the largest software vendors in the world).
@@ -39,11 +32,48 @@ In the following days I have spent a few extra hours to make it a little more ma
 # When should you not use logfault?
 - In applications and servers that normally logs *lots* of information. *Logfault* is optimized for moderate log-volumes and occasional debugging session with extensive logging. The reason is that it use std::stream's which are relatively slow compared to raw buffer-based IO.
 
+# Built-in handlers
+
+1. **StreamHandler**
+   Logs messages to any C++ output stream (`std::ostream`), such as `std::cout` or a file stream.
+
+2. **StreamBufferHandler** (C++20+)
+   Writes log messages directly to a stream buffer (low-level efficiency, useful with file descriptors).
+
+3. **FileIOHandler** *(requires `LOGFAULT_ENABLE_POSIX_WRITE`)*
+   Logs directly to a POSIX file descriptor using `write()`. Very efficient for Unix-like systems.
+
+4. **JsonHandler**
+   Outputs structured logs in JSON format. Useful for machine parsing and log aggregation tools.
+
+5. **ProxyHandler**
+   Allows plugging in a custom callback function to handle log messages however you like.
+
+6. **SystemdHandler**
+   Sends logs to the `systemd` journal (Linux).
+
+7. **SyslogHandler**
+   Sends logs to the system `syslog` service (Unix/Linux).
+
+8. **AndroidHandler**
+   Logs messages to the Android system log (`logcat`).
+
+9. **QtHandler**
+   Routes log messages through Qt’s logging system (`qDebug()`, etc.).
+
+10. **CocoaHandler**
+    Sends logs to Apple’s Cocoa logging system (macOS/iOS).
+
+11. **WindowsEventLogHandler**
+    Logs to the Windows Event Log.
+
+Note that it's very simple to write your own handler and plug it in.
+
 # Logging
 
 When you log messages, you stream data into a temporary std::ostream object. So everything that goes into a std::ostream instance can be logged.
 I often find myself writing custom std::ostream operators to log things like enum names and internal data structures or
-object identifies.
+object identifiers.
 
 *Logfault* has two types of log macros. You have normal log macros, that are used like this:
 
@@ -63,18 +93,8 @@ if (log_event_log_level is within current_log_level_range
 
 In other words, the streaming arguments will be ignored (and function arguments not called) unless we will actually log the line.
 If the log-level is set to NOTICE, all DEBUG and TRACE messages will be totally ignored and not consume any CPU. The
-only CPU consumed for such log statements is the check to see if the log statements are relevant.
-
-Usually this is fine. However, some times we need a lot of log statements to understand the cause of some weird bug.
-Normally I don't even want those log statements to be evaluated for relevance. For those statements, we have
-another type of log macros:
-
-```C++
-LFLOG_IFALL_TRACE("Show only if enabled" << 1 << 3 << 5);
-```
-
-Notice that the whole log statement is enclosed by `(` and `)`. These log statements are simply removed by
-the C++ preprocessor, unless `LOGFAULT_ENABLE_ALL` is defined when `logfault.h` is included.
+only CPU consumed for such log statements is the check to see if the log statements are relevant. Even these can be
+removed if you use compile time filtering.
 
 ## The full set of log-macros
 
@@ -84,17 +104,6 @@ the C++ preprocessor, unless `LOGFAULT_ENABLE_ALL` is defined when `logfault.h` 
 - **`LFLOG_INFO`** Information about what's going on
 - **`LFLOG_DEBUG`** Debug messages
 - **`LFLOG_TRACE`** Trace messages. These may give very detailed information about what's going on
-
-
-And a similar set of conditional macros that require `LOGFAULT_ENABLE_ALL` in order to work.
-
-- **`LFLOG_IFALL_ERROR()`** Errors
-- **`LFLOG_IFALL_WARN()`** Warnings
-- **`LFLOG_IFALL_NOTICE()`** Notable events
-- **`LFLOG_IFALL_INFO()`** Information about what's going on
-- **`LFLOG_IFALL_DEBUG()`** Debug messages
-- **`LFLOG_IFALL_TRACE()`** Trace messages. These may give very detailed information about what's going on
-
 
 # Configure log targets and log levels
 
@@ -152,7 +161,7 @@ int main() {
 
 If you want to log directly to the systemd log.
 
-Note that the **SystemdHandler** require at least C++17.
+Note that the **SystemdHandler** requires at least C++17.
 
 ```C++
 
@@ -187,7 +196,7 @@ do that, and the events are polluted by the message:
 
     The following information was included with the event:
 
-This is fine. Even large Windows application vendors ignores this inconvenience in their logging.
+This is fine. Even large Windows application vendors ignore this inconvenience in their logging.
 Blame Microsoft for making it very hard to support the EventLog in 3rd party applications.
 
 Example of application logging to the Windows EventLog:
@@ -209,7 +218,7 @@ int main( int argc, char *argv[]) {
 This will simply send the log events to QT's logging macros, allowing any
 log-configuration for the QT application to also apply for *logfault*.
 
-It may be useful if you include non-QT libaries using *logfault*
+It may be useful if you include non-QT libraries using *logfault*
 into a QT application.
 
 ```C++
@@ -294,7 +303,7 @@ int main( int argc, char *argv[]) {
 
 The logging support for IOS and macOS is rather primitive, compared to other systems.
 The good thing is that when you debug an application in Xcode, you can see the output
-from the applications standard output - so you don't really *need* to use the `NSLog` funtion.
+from the applications standard output - so you don't really *need* to use the `NSLog` function.
 
 However, if you want to do it *right*, you log via `NSLog`, and *logfault* can help us with that.
 
@@ -388,6 +397,6 @@ You can override this by defining this macro:
 
 Under *Linux*, you can use these additional defines (before including `logfault/logfault.h`) to modify this.
 
-- **`LOGFAULT_USE_TID_AS_NAME`** Use the system wide thread id. This is the same ID that show up in tools such as top, htop, atop etc. as *pid*. This is useful if yo use such tools to examine your running application.
-- **`LOGFAULT_USE_THREAD_NAME`** Use whatever name you assigned to each therad with `pthread_setname_np()`. You may find this useful if you name each individual thread, and step trough your application with the debugger. The log-events will then match the thread-names showed by the debugger.
+- **`LOGFAULT_USE_TID_AS_NAME`** Use the system wide thread id. This is the same ID that show up in tools such as top, htop, atop etc. as *pid*. This is useful if you use such tools to examine your running application.
+- **`LOGFAULT_USE_THREAD_NAME`** Use whatever name you assigned to each thread with `pthread_setname_np()`. You may find this useful if you name each individual thread, and step through your application with the debugger. The log-events will then match the thread-names showed by the debugger.
 
