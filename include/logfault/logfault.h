@@ -634,7 +634,7 @@ expand_vector:
         const std::string thread_{ThreadNameToString(LOGFAULT_THREAD_NAME)};
     };
 
-    void PrintTimestamp(const struct tm *tm, int ms, std::ostream& out) LOGFAULT_NOEXCEPT {
+    inline void PrintTimestamp(const struct tm *tm, int ms, std::ostream& out) LOGFAULT_NOEXCEPT {
         assert(tm != nullptr);
 #if defined(LOGFAULT_TIME_FORMAT)
         out << std::put_time(tm, LOGFAULT_TIME_FORMAT);
