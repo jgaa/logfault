@@ -19,8 +19,28 @@ set(DEFAULT_LIBRARIES  ${CMAKE_THREAD_LIBS_INIT})
 
 add_library(${PROJECT_NAME} INTERFACE)
 
+# === Apple os_log support ===
+option(LOGFAULT_USE_OS_LOG "Enable os_log support on Apple platforms" ON)
+
+if(APPLE AND LOGFAULT_USE_OS_LOG)
+  # os_log lives in the 'os' framework on Apple platforms
+  # Use find_library so we get a proper framework reference with Xcode/Clang.
+  find_library(LOGFAULT_OS_FRAMEWORK os)
+
+  if(LOGFAULT_OS_FRAMEWORK)
+    target_link_libraries(${PROJECT_NAME} INTERFACE "${LOGFAULT_OS_FRAMEWORK}")
+    add_compile_definitions(-DLOGFAULT_HAVE_OS_LOG=1)
+    message(STATUS "logfault: os_log enabled (linking with framework: ${LOGFAULT_OS_FRAMEWORK})")
+  else()
+    message(WARNING "logfault: Apple 'os' framework not found; os_log support disabled")
+  endif()
+endif()
+
 option(LOGFAULT_BUILD_TESTS "Build tests" OFF)
-option(LOGFAULT_BUILD_PERF "Build Performance Benchmarks" OFF)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    option(LOGFAULT_BUILD_PERF "Build Performance Benchmarks" OFF)
+endif()
 
 if(LOGFAULT_BUILD_TESTS)
     find_package(GTest REQUIRED)

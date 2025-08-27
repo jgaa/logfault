@@ -117,6 +117,10 @@ Home: https://github.com/jgaa/logfault
 #   include <syslog.h>
 #endif
 
+#ifdef LOGFAULT_WITH_OS_LOG
+#   include <os/log.h>
+#endif
+
 #ifdef LOGFAULT_USE_ANDROID_NDK_LOG
 #   include <android/log.h>
 #endif
@@ -980,6 +984,76 @@ expand_vector:
     private:
         const fn_t fn_;
     };
+
+#ifdef LOGFAULT_WITH_OS_LOG
+    // Apple os_log handler (macOS, iOS, tvOS, watchOS)
+    class OsLogHandler : public Handler {
+    public:
+        struct Options {
+            Options() {}
+            Options(const std::string& subsystem, const std::string& category = "default")
+                : subsystem{subsystem}, category{category} {}
+            Options(const std::string& subsystem, const std::string& category, bool publicOutput)
+                : subsystem{subsystem}, category{category}, public_output{publicOutput} {}
+            std::string subsystem = "logfault"; // e.g. "com.example.app"
+            std::string category  = "default";  // e.g. "network"
+            bool        public_output =
+#ifdef NDEBUG
+                false; // Release: redact by default
+#else
+                true;  // Debug: show everything
+#endif
+        };
+
+        explicit OsLogHandler(LogLevel level = LogLevel::INFO, Options opt = {})
+            : Handler(level), logger_{os_log_create(opt.subsystem.c_str(), opt.category.c_str())}, opt_{opt} {}
+
+        OsLogHandler(const std::string& name, LogLevel level = LogLevel::INFO, Options opt = {})
+            : Handler(name, level), logger_{os_log_create(opt.subsystem.c_str(), opt.category.c_str())}, opt_{opt} {}
+
+        ~OsLogHandler() override {
+            if (logger_) {
+                // os_log_t follows os_object semantics; release when done.
+                os_release(logger_);
+            }
+        }
+
+        void LogMessage(const Message& msg) LOGFAULT_NOEXCEPT override {
+            if (!logger_) return;
+
+            // Map logfault levels to os_log types
+            const os_log_type_t t = map_type(msg.level_);
+
+            // Reuse existing formatting so different backends look alike
+            std::ostringstream out;
+            PrintMessage(out, msg);
+            const std::string s = out.str();
+
+            if (opt_.public_output) {
+                os_log_with_type(logger_, t, "%{public}s", s.c_str());
+            } else {
+                os_log_with_type(logger_, t, "%{private}s", s.c_str());
+            }
+        }
+
+    private:
+        static os_log_type_t map_type(LogLevel lvl) LOGFAULT_NOEXCEPT {
+            switch (lvl) {
+            case LogLevel::ERROR:     return OS_LOG_TYPE_ERROR;
+            case LogLevel::WARN:      return OS_LOG_TYPE_DEFAULT; // could also be INFO; WARN maps best to DEFAULT
+            case LogLevel::NOTICE:    return OS_LOG_TYPE_DEFAULT;
+            case LogLevel::INFO:      return OS_LOG_TYPE_INFO;
+            case LogLevel::DEBUGGING: return OS_LOG_TYPE_DEBUG;
+            case LogLevel::TRACE:     return OS_LOG_TYPE_DEBUG;
+            default:                  return OS_LOG_TYPE_DEFAULT;
+            }
+        }
+
+        os_log_t logger_{};
+        Options  opt_{};
+    };
+#endif // LOGFAULT_WITH_OS_LOG
+
 
 #ifdef LOGFAULT_WITH_SYSTEMD
 #if __cplusplus < 201703L

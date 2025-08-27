@@ -61,11 +61,17 @@ In the following days I have spent a few extra hours to make it a little more ma
 9. **QtHandler**
    Routes log messages through Qt’s logging system (`qDebug()`, etc.).
 
-10. **CocoaHandler**
-    Sends logs to Apple’s Cocoa logging system (macOS/iOS).
+10. **OsLogHandler** 
+    Logs messages to Apple's newer `os_log` logger (macOS/iOS).
 
-11. **WindowsEventLogHandler**
+11. **CocoaHandler**
+    Sends logs to Apple’s legacy Cocoa logging system (macOS/iOS).
+
+12. **WindowsEventLogHandler**
     Logs to the Windows Event Log.
+    
+13. **CocoaHandler**
+    logs to the legacy `NSLog` logger for Apple. 
 
 Note that it's very simple to write your own handler and plug it in.
 
@@ -179,8 +185,51 @@ int main() {
     LFLOG_INFO << "Hello to journalctl";
 }
 
-
 ```
+
+Looking at how the README presents each platform-specific handler, you’ll want a section between the **SystemdHandler** and **Windows EventLog** bits. Here’s a suggested section for the new **OsLogHandler** that matches the style and detail of the other handler docs in your README:
+
+---
+
+## Log via Apple’s unified logging (`os_log`)
+
+On macOS, iOS, tvOS and watchOS you can use Apple’s modern unified logging system via the **OsLogHandler**.
+This writes to the system log visible in **Console.app** or with the `log` command.
+
+```C++
+#define LOGFAULT_USE_OS_LOG
+#include "logfault/logfault.h"
+
+int main() {
+    // Set up a log-handler to os_log
+    logfault::LogManager::Instance().AddHandler(std::make_unique<logfault::OsLogHandler>(
+        "oslog",
+        logfault::LogLevel::DEBUGGING,
+        logfault::OsLogHandler::Options{"com.example.app", "network"}));
+
+    LFLOG_INFO << "Hello from Apple's os_log unified logging system";
+}
+```
+
+### Viewing logs
+
+* **Live stream:**
+
+  ```bash
+  log stream --style syslog --info --debug \
+      --predicate 'subsystem == "com.example.app" && category == "network"'
+  ```
+* **Console.app:** Filter by *subsystem* = `com.example.app` and *category* = `network`.
+
+### Privacy
+
+By default, logfault marks the whole message as **public** (`%{public}s`) in debug builds and private in release builds.
+If you want it differently, set `Options.public_output` to your match your preference.
+
+---
+
+Would you like me to also add an **“Availability” note** here (macOS 10.12+ / iOS 10+) like we did for systemd’s “requires C++17”? That way users compiling for older SDKs know what to expect.
+
 
 ## Windows EventLog
 The library can send log-events to the Windows EventLog under Windows.
@@ -301,7 +350,9 @@ int main( int argc, char *argv[]) {
 
 ## Log via IOS and macOS' NSLog
 
-The logging support for IOS and macOS is rather primitive, compared to other systems.
+For Apple's platforms, we suggest you use the newer OsLogHandler.
+
+The legacy logging support for IOS and macOS is rather primitive, compared to other systems.
 The good thing is that when you debug an application in Xcode, you can see the output
 from the applications standard output - so you don't really *need* to use the `NSLog` function.
 
@@ -324,7 +375,7 @@ int main( int argc, char *argv[]) {
 C++. We cannot reach the Cocoa function `NSLog` from C++ code - only from Objective-C++. And since we need
 C++ code to define the Cocoa handler, the implementation needs to go in *one* .mm file. You can create an
 empty .mm file for this purpose, or use an existing one.
-
+ß
 ## Log via another log-system
 
 It's normal for a log-library to have a means of chaining log events to some other log framework.
