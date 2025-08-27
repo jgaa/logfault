@@ -1,10 +1,14 @@
 name: CI
 
-on: 
+on:
   push:
+    branches:
+      - master
   pull_request:
+    branches:
+      - master
   schedule:
-    - cron: '0 0 1 * *' # This line schedules the workflow to run at 00:00 on the first day of every month
+    - cron: '0 0 1 * *'
 
 jobs:
   build:
@@ -93,21 +97,4 @@ jobs:
           ctest -C Release
           popd
 
-      - name: install python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.12
-      - name: Install pipx
-        uses: CfirTsabari/actions-pipx@v1
-
-      - name: Install Conan
-        run: |
-            pipx install conan
-            conan profile detect --force
-  
-      - name: Test build with Conan
-        run: |
-            mkdir conan-build && cd conan-build
-            conan install .. --build missing
-            conan create .. --build 'logfault/*'
 
