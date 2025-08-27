@@ -76,13 +76,11 @@ TEST(JsonEscapeTest, MultipleEscapesInOneString) {
     EXPECT_EQ(escape_string(s), "Line1\\\"\\n\\u0002End\\\\"s);
 }
 
-#if __cplusplus >= 201703L
 TEST(JsonEscapeTest, TemplateWithStringView) {
-    std::string_view sv = R"(Tab ->	 End)";
+    std::string sv = R"(Tab ->	 End)";
     // note: between "->" and "End" is a literal tab
-    EXPECT_EQ(escape_string(sv), R"(Tab ->\t End)");
+    EXPECT_EQ(escape_string(sv), R"(Tab ->\t End)"s);
 }
-#endif
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
