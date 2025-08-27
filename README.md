@@ -22,12 +22,13 @@ In the following days I have spent a few extra hours to make it a little more ma
 - Header only library.
 - Very, very easy to use: `LFLOG_DEBUG << "We are entering foo foo: " << 1 << 2 << 3;`
 - Designed to make a tiny binary footprint; ideal for mobile and IoT.
-- Ideal for X-platform apps and libraries; logs to files, syslog, IOS/macOS `NSLog()`, Android's `__android_log_write()`, QT log macros and the Windows EventLog.
+- Ideal for X-platform apps and libraries; logs to files, syslog, systemd, IOS/macOS native log, Android's `__android_log_write()`, QT log macros and the Windows EventLog.
 - Lazy evaluation. Log statements are not evaluated unless they will be logged (filtered by log-level)
 - Compile time filter for lowest enabled log-level. Can be used to totally remove TRACE level evaluation from release builds.
 - Flexible time-stamps, easy to use local-time or UTC.
 - Can log to several log-targets at different log-levels.
 - Written by someone who has worked extensively with logging for decades (from tiny libraries and applications, to owning the log/event libraries in a two digits multi million line C++ application from one of the largest software vendors in the world).
+- Flushes the output buffer after write so the latest log message is always visible. (Can be disabled to improve performance).
 
 # When should you not use logfault?
 - In applications and servers that normally logs *lots* of information. *Logfault* is optimized for moderate log-volumes and occasional debugging session with extensive logging. The reason is that it use std::stream's which are relatively slow compared to raw buffer-based IO.
