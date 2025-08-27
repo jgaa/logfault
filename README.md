@@ -70,9 +70,6 @@ In the following days I have spent a few extra hours to make it a little more ma
 12. **WindowsEventLogHandler**
     Logs to the Windows Event Log.
     
-13. **CocoaHandler**
-    logs to the legacy `NSLog` logger for Apple. 
-
 Note that it's very simple to write your own handler and plug it in.
 
 # Logging
