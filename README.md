@@ -185,10 +185,6 @@ int main() {
 
 ```
 
-Looking at how the README presents each platform-specific handler, you’ll want a section between the **SystemdHandler** and **Windows EventLog** bits. Here’s a suggested section for the new **OsLogHandler** that matches the style and detail of the other handler docs in your README:
-
----
-
 ## Log via Apple’s unified logging (`os_log`)
 
 On macOS, iOS, tvOS and watchOS you can use Apple’s modern unified logging system via the **OsLogHandler**.
@@ -223,11 +219,6 @@ int main() {
 
 By default, logfault marks the whole message as **public** (`%{public}s`) in debug builds and private in release builds.
 If you want it differently, set `Options.public_output` to your match your preference.
-
----
-
-Would you like me to also add an **“Availability” note** here (macOS 10.12+ / iOS 10+) like we did for systemd’s “requires C++17”? That way users compiling for older SDKs know what to expect.
-
 
 ## Windows EventLog
 The library can send log-events to the Windows EventLog under Windows.
