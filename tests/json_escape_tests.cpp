@@ -1,9 +1,6 @@
 #include <gtest/gtest.h>
 #include <sstream>
 #include <string>
-#if __cplusplus >= 201703L
-#   include <string_view>
-#endif
 
 // pull in the JsonEscape template from your library
 #include "logfault/logfault.h"
@@ -20,19 +17,10 @@ std::string escape_string(const std::string& in) {
     return out.str();
 }
 
-
-#if __cplusplus >= 201703L
-std::string escape_string(std::string_view in) {
-    std::ostringstream out;
-    JsonEscape(in, out);
-    return out.str();
-}
-#endif
-
 } // anon ns
 
 TEST(JsonEscapeTest, EmptyString) {
-    EXPECT_EQ(escape_string(std::string_view{""}), "");
+    EXPECT_EQ(escape_string(""), "");
 }
 
 TEST(JsonEscapeTest, NoEscapeNeeded) {

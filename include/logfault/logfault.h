@@ -624,7 +624,14 @@ expand_vector:
 #if __cplusplus >= 202002L
             , log_fn_{log_fn}
 #endif
-        {}
+        {
+#ifdef _WIN32
+            static std::once_flag once;
+            std::call_once(once, [] {
+                _tzset();
+            });
+#endif
+        }
 
         const std::string& msg_;
         const std::chrono::system_clock::time_point when_ = std::chrono::system_clock::now();
@@ -643,26 +650,30 @@ expand_vector:
 #if defined(LOGFAULT_TIME_FORMAT)
         out << std::put_time(tm, LOGFAULT_TIME_FORMAT);
 #else
-#if LOGFAULT_TIME_PRINT_TIMEZONE
-#   if LOGFAULT_USE_UTCZONE
-        const char *zone " UTC";
-#   else
-        const char *zone = tm->tm_zone;
-#   endif
-#else // LOGFAULT_TIME_PRINT_TIMEZONE
+#   if LOGFAULT_TIME_PRINT_TIMEZONE
+#       if LOGFAULT_USE_UTCZONE
+            const char *zone = "UTC";
+#       else
+#           if defined(_WIN32)
+                const char* zone = _tzname[(tm->tm_isdst > 0) ? 1 : 0];
+                if (!zone) zone = "";
+#           else
+                const char *zone = tm->tm_zone;
+#           endif // _WIN32
+#       endif // LOGFAULT_USE_UTCZONE
+#   else // LOGFAULT_TIME_PRINT_TIMEZONE
         const char *zone = "";
-#endif
+#   endif // LOGFAULT_TIME_PRINT_TIMEZONE
         std::array<char, 48> buffer;
         const int len = std::snprintf(buffer.data(), buffer.size(),
                                 "%04d-%02d-%02d %02d:%02d:%02d.%03d %s",
                                 tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
                                 tm->tm_hour, tm->tm_min, tm->tm_sec,
                                 ms, zone);
-#endif
-
         if (len > 0) {
             out.write(buffer.data(), len);
         }
+#endif // LOGFAULT_TIME_FORMAT
     }
 
     class Handler {
