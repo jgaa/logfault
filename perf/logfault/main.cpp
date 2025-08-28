@@ -2,7 +2,10 @@
 #include <iostream>
 #include <string>
 #include <chrono>
+#include <boost/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
+#define SPDLOG_USE_MACROS_ 0
 
 #define LOGFAULT_MIN_LOG_LEVEL DEBUGGING
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
@@ -32,7 +35,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <spdlog/pattern_formatter.h>
+#include <spdlog/sinks/dist_sink.h>
 
 
 using namespace std;
@@ -107,7 +110,7 @@ void logWithLogfault(const Config& config) {
             .number = i * 123456
         };
 
-        LFLOG_INFO << "Log entry #\"" << i << "\": " << data;
+        LFLOG_INFO << "Log entry #\"" << i << "\": " << data; // << boost::uuids::to_string(boost::uuids::random_generator()());
         //LFLOG_INFO << "Log entry #\"" << i;
 
         for (auto j = 0u; j < config.debug_amplification; ++j) {
@@ -227,6 +230,99 @@ void logWithBoostLog(const Config& config) {
     logging::core::get()->flush();
 }
 
+#if SPDLOG_USE_MACROS_
+// Map textual level (or adapt to your enum) -> spdlog::level
+static inline spdlog::level::level_enum to_spd_level(const std::string& lvl) {
+    using L = spdlog::level::level_enum;
+    if (lvl == "trace")    return L::trace;
+    if (lvl == "debug")    return L::debug;
+    if (lvl == "info")     return L::info;
+    if (lvl == "warn")     return L::warn;
+    if (lvl == "error")    return L::err;
+    if (lvl == "critical") return L::critical;
+    return L::off; // "disabled" or unknown
+}
+static inline bool enabled(const std::string& lvl) {
+    return to_spd_level(lvl) != spdlog::level::off;
+}
+
+void logWithSpdlog(const Config& config) {
+    using namespace spdlog;
+
+    static std::string default_text_pattern = R"("%Y-%m-%d %H:%M:%S.%e [%l] %v")"s;
+    static std::string json_pattern = R"({"ts":"%Y-%m-%dT%H:%M:%S.%e","lvl":"%l","msg":"%v"})"s;
+
+    // Build sinks with independent levels
+    auto dist = std::make_shared<sinks::dist_sink_mt>();
+    std::vector<std::shared_ptr<sinks::sink>> owned;
+
+    // Console sink
+    if (enabled(config.level_console)) {
+        auto con = std::make_shared<sinks::stdout_color_sink_mt>();
+        con->set_level(to_spd_level(config.level_console));
+        con->set_pattern(config.as_json ? json_pattern : default_text_pattern);
+        dist->add_sink(con);
+        owned.push_back(con);
+    }
+
+    // File sink (append; switch to 'true' for truncate if that matches your Logfault run)
+    if (!config.file_name.empty() && enabled(config.level_file)) {
+        auto file = std::make_shared<sinks::basic_file_sink_mt>(config.file_name, /*truncate=*/false);
+        file->set_level(to_spd_level(config.level_file));
+        file->set_pattern(config.as_json ? json_pattern : default_text_pattern);
+        dist->add_sink(file);
+        owned.push_back(file);
+    }
+
+    // If no sinks enabled, make a /dev/null logger to keep the benchmark path consistent
+    if (dist->sinks().empty()) {
+        // short-circuit: nothing to do
+        return;
+    }
+
+    // Per spdlog best practices:
+    // - logger level at TRACE so sink levels do the filtering.
+    // - use macros so compile-time filter removes codepaths entirely.
+    auto spd_logger = std::make_shared<logger>("bench", dist);
+    spd_logger->set_level(level::trace);
+    spd_logger->flush_on(level::err); // flush on errors+; adjust if you want
+
+    // Optional: set as default logger if your calling code expects that
+    // spdlog::set_default_logger(logger);
+
+    // Emit logs similar to: LFLOG_INFO << "Log entry #\"" << i << "\": " << data;
+    // We'll render CustomData fields explicitly to keep formatting stable & fast.
+    for (uint32_t i = 0; i < config.num_log_entries; ++i) {
+        CustomData data{
+            "User" + std::to_string(i),
+            "user" + std::to_string(i) + "@example.com",
+            static_cast<uint64_t>(i) * 123456ull
+        };
+
+        // INFO (compile-time & sink-level filtered)
+        SPDLOG_LOGGER_INFO(
+            spd_logger,
+            R"(Log entry #"{}": name={}, email={}, number={})",
+            i, data.name, data.email, data.number
+            );
+
+        for (auto j = 0u; j < config.debug_amplification; ++j) {
+            SPDLOG_LOGGER_DEBUG(spd_logger, "Debugging log entry #{} name={}, email={}, number={}",
+                i, data.name, data.email, data.number);
+        }
+
+        for (auto j = 0u; j < config.trace_amplification; ++j) {
+            SPDLOG_LOGGER_TRACE(spd_logger, "Tracing log entry #{} name={}, email={}, number={}",
+                i, data.name, data.email, data.number);
+        }
+    }
+
+    // Ensure buffered sinks flush (esp. file) for fair perf comparisons
+    spd_logger->flush();
+}
+
+#else
+
 void logWithSpdlog(const Config& config) {
     // 1) Parse levels
     auto console_level = spdlog::level::from_str(config.level_console);
@@ -300,6 +396,7 @@ void logWithSpdlog(const Config& config) {
     logger->flush();
     spdlog::drop("perf_logger");
 }
+#endif // SPDLOG_USE_MACROS_
 
 int main(int argc, char *argv[])
 {
