@@ -528,8 +528,8 @@ expand_vector:
     void JsonEscape(const T& msg, std::ostream& out) {
         static constexpr std::array<char, 16> hex = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
         static constexpr std::array<char, 93> table = {
-            -1, -1, -1, -1, -1, -1, -1, -1, 'b', 't', 'n', -1, 'f', 'r', -1, -1, -1
-            , -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0
+            1, 1, 1, 1, 1, 1, 1, 1, 'b', 't', 'n', 1, 'f', 'r', 1, 1, 1
+            , 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0
             , 0, '"', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -593,7 +593,7 @@ expand_vector:
                 putc_buffer(*p);
                 continue;
             }
-            if (tc > 0) {
+            if (tc != 1) {
                 putc_buffer('\\');
                 putc_buffer(tc);
                 continue;
