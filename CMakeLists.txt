@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.05...3.30 FATAL_ERROR)
 
-set (LOGFAULT_VERSION 0.8.1)
+set (LOGFAULT_VERSION 0.8.2)
 
 project(logfault
     DESCRIPTION "Simple to use, header only C++ library for application-logging on all major platforms."

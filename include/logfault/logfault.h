@@ -59,9 +59,15 @@ Home: https://github.com/jgaa/logfault
 #   define LOGFAULT_NOEXCEPT
 #endif
 
-#if LOGFAULT_ENABLE_POSIX_WRITE
-#   include <unistd.h>
-#   include <string.h>
+#ifdef _WIN32
+#    include <io.h>         // _write
+#    include <BaseTsd.h>    // SSIZE_T
+using ssize_t = SSIZE_T;
+#    define write _write
+#else
+#    include <unistd.h>     // write
+#    include <cerrno>       // errno
+#    include <string.h>     // strerror
 #endif
 
 #if __cplusplus >= 202002L
@@ -790,7 +796,6 @@ expand_vector:
             : Handler(level), sb_{[fd](const sb::buffers_type& buffers, size_t bytes) -> void {
                 for(const auto& b : buffers) {
                     bytes -= write(fd, b->data(), std::min(b->size(), bytes));
-
                 }
             }} {}
 
