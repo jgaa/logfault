@@ -63,11 +63,12 @@ Home: https://github.com/jgaa/logfault
 #    include <io.h>         // _write
 #    include <BaseTsd.h>    // SSIZE_T
 using ssize_t = SSIZE_T;
-#    define write _write
+#    define _logfault_posix_write _write
 #else
 #    include <unistd.h>     // write
 #    include <cerrno>       // errno
 #    include <string.h>     // strerror
+#    define _logfault_posix_write write
 #endif
 
 #if __cplusplus >= 202002L
@@ -795,7 +796,7 @@ expand_vector:
         StreamBufferHandler(int fd, LogLevel level)
             : Handler(level), sb_{[fd](const sb::buffers_type& buffers, size_t bytes) -> void {
                 for(const auto& b : buffers) {
-                    bytes -= write(fd, b->data(), std::min(b->size(), bytes));
+                    bytes -= _logfault_posix_write(fd, b->data(), std::min(b->size(), bytes));
                 }
             }} {}
 
@@ -822,7 +823,7 @@ expand_vector:
             PrintMessage(buffer, msg);
             buffer << '\n';
             const auto str = buffer.str();
-            if (write(out_, str.data(), str.size()) != static_cast<ssize_t>(str.size())) {
+            if (_logfault_posix_write(out_, str.data(), str.size()) != static_cast<ssize_t>(str.size())) {
                 // Handle error, e.g., throw an exception or log an error
                 std::cerr << "Logfault: Failed to write to file descriptor " << out_ << ": " << strerror(errno) << '\n';
             }
