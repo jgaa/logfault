@@ -848,11 +848,31 @@ expand_vector:
                                               | 1 << Fields::FUNC
                                               | 1 << Fields::MSG;
 
+        static constexpr int all_fields = 1 << Fields::TIME
+                                              | 1 << Fields::LEVEL
+                                              | 1 << Fields::THREAD
+                                              | 1 << Fields::FILE
+                                              | 1 << Fields::LINE
+                                              | 1 << Fields::FUNC
+                                              | 1 << Fields::MSG;
+
         JsonHandler(std::ostream& out, LogLevel level, int fields = default_fields)
             : Handler(level), out_{out}, fields_{fields} {}
 
+        JsonHandler(std::string name, std::ostream& out, LogLevel level, int fields = default_fields)
+            : Handler(std::move(name), level), out_{out}, fields_{fields} {}
+
         JsonHandler(const std::string& path, LogLevel level, int fields = default_fields, const bool truncate = false)
             : Handler(level)
+            , file_{new std::ofstream{path, std::ios::out | (truncate ? std::ios::trunc : std::ios::app)}}
+            , out_{*file_}, fields_{fields} {
+            if (!file_->is_open()) {
+                throw std::runtime_error{"Failed to open file: " + path};
+            }
+        }
+
+        JsonHandler(std::string name, const std::string& path, LogLevel level, int fields = default_fields, const bool truncate = false)
+            : Handler(std::move(name), level)
             , file_{new std::ofstream{path, std::ios::out | (truncate ? std::ios::trunc : std::ios::app)}}
             , out_{*file_}, fields_{fields} {
             if (!file_->is_open()) {
@@ -940,6 +960,7 @@ expand_vector:
 
             if (fields_ & (1 << Fields::FILE) && msg.file_) {
                 add(Fields::FILE, ShortenPath(msg.file_));
+                out_ << '"';
             }
 
             if (fields_ & (1 << Fields::LINE) && msg.line_) {
@@ -949,6 +970,7 @@ expand_vector:
 
             if (fields_ & (1 << Fields::FUNC) && msg.func_) {
                 add(Fields::FUNC, msg.func_);
+                out_ << '"';
             }
 
 #if __cplusplus >= 202002L
