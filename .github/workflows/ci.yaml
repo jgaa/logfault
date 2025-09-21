@@ -100,7 +100,7 @@ jobs:
       - name: Run tests
         run: |
           pushd build
-          ctest -C Release
+          ctest -C Release --output-on-failure
           popd
 
 
