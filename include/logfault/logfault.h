@@ -143,6 +143,13 @@ using ssize_t = SSIZE_T;
 #	undef ERROR
 #endif
 
+#ifdef WIN32
+#   ifdef min
+        // Thank you soo much Microsoft! Nobody pollutes the global namespace like you do!
+#       undef min
+#   endif
+#endif
+
 #ifndef LOGFAULT_LOCATION__
 #   if defined(LOGFAULT_ENABLE_LOCATION) && LOGFAULT_ENABLE_LOCATION
 #       define LOGFAULT_LOCATION__ << logfault::Handler::ShortenPath(__FILE__) << ':' << __LINE__ << " {" << __func__ << "} "
