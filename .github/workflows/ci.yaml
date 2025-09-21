@@ -73,7 +73,7 @@ jobs:
             fi
         shell: bash
 
-      - name: Copy ci/vcpkg/* to $HOME
+      - name: Copy vcpkg files to home
         shell: bash
         run: |
           cmake -E copy_directory "$GITHUB_WORKSPACE/ci/vcpkg" "$HOME"
