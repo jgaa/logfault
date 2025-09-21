@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - master
+      - staging
   schedule:
     - cron: '0 0 1 * *'
 
@@ -71,6 +72,11 @@ jobs:
                 echo "$HOME/ninja" >> $GITHUB_PATH
             fi
         shell: bash
+
+      - name: Copy ci/vcpkg/* to $HOME
+        shell: bash
+        run: |
+          cmake -E copy_directory "$GITHUB_WORKSPACE/ci/vcpkg" "$HOME"
 
       - name: Install dependencies
         run: |
