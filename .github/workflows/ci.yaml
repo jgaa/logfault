@@ -76,7 +76,7 @@ jobs:
       - name: Copy vcpkg files to home
         shell: bash
         run: |
-          cmake -E copy_directory "$GITHUB_WORKSPACE/ci/vcpkg" "$HOME"
+          cp -v ci/vcpkg/vcpkg-configuration.json ci/vcpkg/vcpkg.json .
 
       - name: Install dependencies
         run: |
