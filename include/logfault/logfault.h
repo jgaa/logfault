@@ -269,6 +269,7 @@ toLog(const T& data, const bool want_json = false) {
     // Thank you soo much Microsoft! Nobody pollutes the global namespace quite like you do!
 #   ifdef min
 #       undef min
+#       undef max
 #   endif
 #   ifdef ERROR
 #       undef ERROR
