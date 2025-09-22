@@ -34,7 +34,9 @@ struct Logger {
     }
 
     std::string get() const {
-        return out.str();
+        auto str = out.str();
+        std::cout << "Json: " << out.str() << std::endl;
+        return str;
     }
 
     std::stringstream out;
@@ -48,7 +50,6 @@ TEST(JsonTests, SimpleOutput) {
     LFLOG_INFO << "Hello there";
 
     const auto out = log.get();
-    //clog << out << endl;
     EXPECT_NO_THROW(boost::json::parse(out));
 }
 
@@ -59,7 +60,6 @@ TEST(JsonTests, OutputWithLocation) {
     LFLOG_INFO_EX << "Hello there";
 
     const auto out = log.get();
-    //clog << out << endl;
     EXPECT_NO_THROW(boost::json::parse(out));
 }
 
@@ -69,7 +69,6 @@ TEST(JsonTests, OutputWithLocationAndSourcePosition) {
     LFLOG_INFO_EX << "Hello there";
 
     const auto out = log.get();
-    //clog << out << endl;
     EXPECT_NO_THROW(boost::json::parse(out));
 }
 
