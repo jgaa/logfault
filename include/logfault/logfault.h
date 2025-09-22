@@ -148,7 +148,7 @@ using ssize_t = SSIZE_T;
 #	undef ERROR
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #   ifdef min
         // Thank you soo much Microsoft! Nobody pollutes the global namespace like you do!
 #       undef min
@@ -259,7 +259,7 @@ toLog(const T& data, const bool want_json = false) {
 #   elif defined(LOGFAULT_USE_TID_AS_NAME)  && defined(__unix__)
 #       include <pthread.h>
 #       define LOGFAULT_THREAD_NAME pthread_self()
-#   elif defined(LOGFAULT_USE_TID_AS_NAME)  && defined(WIN32)
+#   elif defined(LOGFAULT_USE_TID_AS_NAME)  && defined(_WIN32)
 #       include <windows.h>
 #       define LOGFAULT_THREAD_NAME GetCurrentThreadId()
 #   else
@@ -771,7 +771,7 @@ expand_vector:
             std::vector<const char *> seperators;
             for(const char *p = path; *p; ++p) {
                 if (((*p == '/')
-#if defined(WIN32) || defined(__WIN32) || defined(MSC_VER) || defined(WINDOWS)
+#if defined(_WIN32) || defined(MSC_VER) || defined(WINDOWS)
                     || (*p == '\\')
 #endif
                 ) && p[1]) {
