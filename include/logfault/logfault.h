@@ -74,6 +74,11 @@ using ssize_t = SSIZE_T;
 #if __cplusplus >= 202002L
 #   include <optional>
 #   include <span>
+#   define LOGFAULT_UNLIKELY_ LOGFAULT_UNLIKELY_
+#   define LOGFAULT_LIKELY_ LOGFAULT_LIKELY_
+#else
+#   define LOGFAULT_UNLIKELY_
+#   define LOGFAULT_LIKELY_
 #endif
 
 #if __cplusplus >= 201703L
@@ -326,7 +331,7 @@ public:
 
     std::string str() {
         std::string result;
-        if (buffers_.index() == BuffeKind::ARRAY) [[likely]] {
+        if (buffers_.index() == BuffeKind::ARRAY) LOGFAULT_LIKELY_ {
             auto& array_buffers = std::get<BuffeKind::ARRAY>(buffers_);
             assert(array_buffers.size() > buffer_count_);
 
@@ -361,7 +366,7 @@ public:
 
 protected:
     inline int_type overflow(int_type ch) noexcept override {
-        if (bad_) [[unlikely]] {
+        if (bad_) LOGFAULT_UNLIKELY_ {
             return traits_type::eof();
         }
         assert(buffers_.index() != BuffeKind::NONE && "No buffers allocated for streambuf");
@@ -382,7 +387,7 @@ protected:
     inline std::streamsize xsputn(const char* s, std::streamsize count) override {
         std::streamsize written = 0;
         while (written < count) {
-            if (bad_) [[unlikely]] {
+            if (bad_) LOGFAULT_UNLIKELY_ {
                 return written;
             }
             assert(buffers_.index() != BuffeKind::NONE && "No buffers allocated for streambuf");
@@ -449,7 +454,7 @@ expand_vector:
     }
 
     inline void flush_buffers() noexcept {
-        if (buffers_.index() == BuffeKind::ARRAY) [[likely]] {
+        if (buffers_.index() == BuffeKind::ARRAY) LOGFAULT_LIKELY_ {
             auto& array_buffers = std::get<BuffeKind::ARRAY>(buffers_);
             assert(array_buffers.size() > buffer_count_);
 
@@ -473,7 +478,7 @@ expand_vector:
     }
 
     inline void clear_heap_buffers() noexcept {
-        if (buffers_.index() == BuffeKind::ARRAY) [[likely]] {
+        if (buffers_.index() == BuffeKind::ARRAY) LOGFAULT_LIKELY_ {
             auto& array_buffers = std::get<BuffeKind::ARRAY>(buffers_);
             for (auto i = 1ul ; i < buffer_count_; ++i) {
                 assert(array_buffers[i]);
@@ -566,7 +571,7 @@ expand_vector:
             out.write(msg.data(), len);
         }
         const auto len_after_escape = msg.size() - len;
-        if (!len_after_escape) [[likely]] {
+        if (!len_after_escape) LOGFAULT_LIKELY_ {
             // No need to escape, just write the string as is
             return;
         }
@@ -586,7 +591,7 @@ expand_vector:
         };
 
         auto putc_buffer = [&](char c) {
-            if (pp >= buf_end) [[unlikely]] {
+            if (pp >= buf_end) LOGFAULT_UNLIKELY_ {
                 flush_buffer();
             }
             *pp = c;
@@ -603,7 +608,7 @@ expand_vector:
 
             assert(uc < table.size());
             const auto tc = table[uc];
-            if (tc == 0) [[likely]] {
+            if (tc == 0) LOGFAULT_LIKELY_ {
                 putc_buffer(*p);
                 continue;
             }
@@ -914,7 +919,7 @@ expand_vector:
             bool first = true;
             auto add_label = [&](Fields label) {
                 const auto name = label_names[static_cast<size_t>(label)];
-                if (first) [[unlikely]] {
+                if (first) LOGFAULT_UNLIKELY_ {
                     first = false;
                 } else {
                     out_ << ',';
@@ -938,7 +943,7 @@ expand_vector:
 
 
             auto add_json = [&](const auto json) {
-                if (first) [[unlikely]] {
+                if (first) LOGFAULT_UNLIKELY_ {
                     first = false;
                 } else {
                     out_ << ',';
@@ -966,7 +971,13 @@ expand_vector:
             }
 
             if (fields_ & (1 << Fields::FILE) && msg.file_) {
-                add(Fields::FILE, ShortenPath(msg.file_));
+                add_label(Fields::LINE);
+#if __cplusplus >= 201703L
+                const std::string_view spath{ShortenPath(msg.file_)};
+#else
+                const std::string spath{ShortenPath(msg.file_)};
+#endif
+                JsonEscape(spath, out_);
                 out_ << '"';
             }
 
@@ -1204,7 +1215,7 @@ expand_vector:
                                        static_cast<size_t>(buffer.size())};
 
                     ++num_fields;
-                } else [[unlikely]] {
+                } else LOGFAULT_UNLIKELY_ {
                     assert(false);
                     ; // Silently ignore the error. We can't throw here.
                 }
