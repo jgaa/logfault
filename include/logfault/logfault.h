@@ -148,13 +148,6 @@ using ssize_t = SSIZE_T;
 #	undef ERROR
 #endif
 
-#ifdef _WIN32
-#   ifdef min
-        // Thank you soo much Microsoft! Nobody pollutes the global namespace like you do!
-#       undef min
-#   endif
-#endif
-
 #ifndef LOGFAULT_LOCATION__
 #   if defined(LOGFAULT_ENABLE_LOCATION) && LOGFAULT_ENABLE_LOCATION
 #       define LOGFAULT_LOCATION__ << logfault::Handler::ShortenPath(__FILE__) << ':' << __LINE__ << " {" << __func__ << "} "
@@ -270,6 +263,16 @@ toLog(const T& data, const bool want_json = false) {
 #ifdef ERROR
 // Thank you SOOO much Microsoft!
 #   undef ERROR
+#endif
+
+#ifdef _WIN32
+    // Thank you soo much Microsoft! Nobody pollutes the global namespace quite like you do!
+#   ifdef min
+#       undef min
+#   endif
+#   ifdef ERROR
+#       undef ERROR
+#   endif
 #endif
 
 #ifndef LOGFAULT_SB_BUFFER_SIZE
