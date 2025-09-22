@@ -74,8 +74,8 @@ using ssize_t = SSIZE_T;
 #if __cplusplus >= 202002L
 #   include <optional>
 #   include <span>
-#   define LOGFAULT_UNLIKELY_ LOGFAULT_UNLIKELY_
-#   define LOGFAULT_LIKELY_ LOGFAULT_LIKELY_
+#   define LOGFAULT_UNLIKELY_ [[unlikely]]
+#   define LOGFAULT_LIKELY_ [[likely]]
 #else
 #   define LOGFAULT_UNLIKELY_
 #   define LOGFAULT_LIKELY_
