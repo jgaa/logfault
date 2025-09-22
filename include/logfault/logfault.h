@@ -683,14 +683,14 @@ expand_vector:
 #   else // LOGFAULT_TIME_PRINT_TIMEZONE
         const char *zone = "";
 #   endif // LOGFAULT_TIME_PRINT_TIMEZONE
-        std::array<char, 48> buffer;
+        std::array<char, 64> buffer;
         const int len = std::snprintf(buffer.data(), buffer.size(),
                                 "%04d-%02d-%02d %02d:%02d:%02d.%03d %s",
                                 tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
                                 tm->tm_hour, tm->tm_min, tm->tm_sec,
                                 ms, zone);
         if (len > 0) {
-            out.write(buffer.data(), len);
+            out.write(buffer.data(), std::min<size_t>(len, buffer.size() -1));
         }
 #endif // LOGFAULT_TIME_FORMAT
     }
