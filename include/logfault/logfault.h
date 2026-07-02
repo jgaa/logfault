@@ -83,6 +83,7 @@ using ssize_t = SSIZE_T;
 
 #if __cplusplus >= 201703L
 #   include <string_view>
+#   include <variant>
 #endif
 
 #ifndef LOGFAULT_USE_UTCZONE
