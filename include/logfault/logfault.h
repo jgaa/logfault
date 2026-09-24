@@ -976,7 +976,7 @@ expand_vector:
             }
 
             if (fields_ & (1 << Fields::FILE) && msg.file_) {
-                add_label(Fields::LINE);
+                add_label(Fields::FILE);
 #if __cplusplus >= 201703L
                 const std::string_view spath{ShortenPath(msg.file_)};
 #else
